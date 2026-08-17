@@ -1,6 +1,12 @@
 import { ReactNode } from "react";
 import clsx from "clsx";
 
+/** Wrap any wide table in this so it scrolls horizontally on narrow
+ *  viewports instead of breaking the page layout. */
+export function ScrollTable({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={clsx("overflow-x-auto", className)}>{children}</div>;
+}
+
 export function Card({
   children,
   className,

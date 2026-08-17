@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, Card, Badge } from "@/components/ui";
+import { PageHeader, Card, Badge, ScrollTable } from "@/components/ui";
 import { timeAgo } from "@/lib/format";
 import { reviewRoomCheck } from "../housekeeping/[id]/actions";
 
@@ -69,6 +69,7 @@ export default async function AuditsPage() {
         Recently reviewed
       </div>
       <Card className="p-0 overflow-hidden">
+        <ScrollTable>
         <table className="w-full text-sm">
           <tbody>
             {reviewed.map((rc) => (
@@ -88,6 +89,7 @@ export default async function AuditsPage() {
             )}
           </tbody>
         </table>
+        </ScrollTable>
       </Card>
     </div>
   );

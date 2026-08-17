@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { PageHeader, KpiTile, Card, Badge } from "@/components/ui";
+import { PageHeader, KpiTile, Card, Badge, ScrollTable } from "@/components/ui";
 import { HorizontalBarChart } from "@/components/charts/BarChart";
 import { formatMoney, timeAgo, nowMs } from "@/lib/format";
 
@@ -97,6 +97,7 @@ export default async function DashboardPage() {
 
       <Card className="mt-6 p-6">
         <div className="text-sm font-semibold text-[var(--color-navy)] mb-4">Top properties</div>
+        <ScrollTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--color-muted-2)]">
@@ -119,6 +120,7 @@ export default async function DashboardPage() {
             ))}
           </tbody>
         </table>
+        </ScrollTable>
       </Card>
     </div>
   );

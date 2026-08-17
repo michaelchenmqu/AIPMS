@@ -1,6 +1,6 @@
 import { requireContractorScope } from "@/lib/contractor";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, Card, KpiTile } from "@/components/ui";
+import { PageHeader, Card, KpiTile, ScrollTable } from "@/components/ui";
 import { formatMoney, formatDate } from "@/lib/format";
 
 export default async function ContractorPayoutsPage() {
@@ -28,7 +28,7 @@ export default async function ContractorPayoutsPage() {
     <div>
       <PageHeader title="Payouts" subtitle={`Earnings for ${contractor.name} at $${contractor.hourlyRate}/hr`} />
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <KpiTile label="Total earnings" value={formatMoney(totalEarnings)} />
         <KpiTile label="Hours billed" value={`${totalHours.toFixed(1)}h`} />
         <KpiTile label="Jobs completed" value={String(jobs.length)} />
@@ -50,6 +50,7 @@ export default async function ContractorPayoutsPage() {
       </Card>
 
       <Card className="p-0 overflow-hidden">
+        <ScrollTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--color-muted-2)] bg-[var(--color-sand-100)]">
@@ -72,6 +73,7 @@ export default async function ContractorPayoutsPage() {
             ))}
           </tbody>
         </table>
+        </ScrollTable>
       </Card>
     </div>
   );

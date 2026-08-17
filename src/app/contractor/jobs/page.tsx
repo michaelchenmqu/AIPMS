@@ -2,7 +2,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { requireContractorScope } from "@/lib/contractor";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, Card, Badge } from "@/components/ui";
+import { PageHeader, Card, Badge, ScrollTable } from "@/components/ui";
 import { formatMoney, timeAgo } from "@/lib/format";
 
 const TABS = [
@@ -52,6 +52,7 @@ export default async function ContractorJobsPage({
       </div>
 
       <Card className="p-0 overflow-hidden">
+        <ScrollTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--color-muted-2)] bg-[var(--color-sand-100)]">
@@ -87,6 +88,7 @@ export default async function ContractorJobsPage({
             )}
           </tbody>
         </table>
+        </ScrollTable>
       </Card>
     </div>
   );

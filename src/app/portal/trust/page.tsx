@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { PageHeader, Card, Badge, KpiTile } from "@/components/ui";
+import { PageHeader, Card, Badge, KpiTile, ScrollTable } from "@/components/ui";
 import { formatMoney, formatDate } from "@/lib/format";
 
 export default async function TrustAccountingPage() {
@@ -16,13 +16,14 @@ export default async function TrustAccountingPage() {
     <div>
       <PageHeader title="Trust accounting" subtitle="Rent collected, commission, expenses, and owner payouts" />
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <KpiTile label="Rent collected" value={formatMoney(collected)} />
         <KpiTile label="Owner payouts" value={formatMoney(Math.abs(payouts))} />
         <KpiTile label="Trust balance" value={formatMoney(balance)} tone={balance >= 0 ? "success" : "warning"} />
       </div>
 
       <Card className="p-0 overflow-hidden">
+        <ScrollTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--color-muted-2)] bg-[var(--color-sand-100)]">
@@ -49,6 +50,7 @@ export default async function TrustAccountingPage() {
             ))}
           </tbody>
         </table>
+        </ScrollTable>
       </Card>
     </div>
   );

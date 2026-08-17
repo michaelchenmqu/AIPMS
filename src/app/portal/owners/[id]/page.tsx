@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, Card, Badge, KpiTile } from "@/components/ui";
+import { PageHeader, Card, Badge, KpiTile, ScrollTable } from "@/components/ui";
 import { formatMoney, formatDate } from "@/lib/format";
 
 export default async function OwnerDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -73,6 +73,7 @@ export default async function OwnerDetailPage({ params }: { params: Promise<{ id
 
       <Card className="p-6 mt-6">
         <div className="text-sm font-semibold text-[var(--color-navy)] mb-4">Trust ledger</div>
+        <ScrollTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--color-muted-2)]">
@@ -95,6 +96,7 @@ export default async function OwnerDetailPage({ params }: { params: Promise<{ id
             ))}
           </tbody>
         </table>
+        </ScrollTable>
       </Card>
     </div>
   );

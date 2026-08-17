@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { PageHeader, Card, Badge, KpiTile } from "@/components/ui";
+import { PageHeader, Card, Badge, KpiTile, ScrollTable } from "@/components/ui";
 import { formatMoney, formatDate } from "@/lib/format";
 
 export default async function InvoicingPage() {
@@ -16,13 +16,14 @@ export default async function InvoicingPage() {
     <div>
       <PageHeader title="Invoicing" subtitle="Usage-based owner statements — linen + verified-hours line items" />
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <KpiTile label="Linen billed" value={formatMoney(totalLinen)} />
         <KpiTile label="Labor billed" value={formatMoney(totalLabor)} />
         <KpiTile label="Total invoiced" value={formatMoney(total)} tone="success" />
       </div>
 
       <Card className="p-0 overflow-hidden">
+        <ScrollTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--color-muted-2)] bg-[var(--color-sand-100)]">
@@ -54,6 +55,7 @@ export default async function InvoicingPage() {
             ))}
           </tbody>
         </table>
+        </ScrollTable>
       </Card>
     </div>
   );
