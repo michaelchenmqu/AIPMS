@@ -55,14 +55,15 @@ export default function Home() {
             AIPMS · AI-Powered Holiday Letting Platform
           </div>
           <h1 className="font-[family-name:var(--font-serif)] text-4xl sm:text-5xl font-bold leading-tight max-w-2xl">
-            Bill owners for what actually happened — not a flat fee.
+            Maximise Revenue. Reduce Costs. Let AI Run the Operations.
           </h1>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[rgba(255,255,255,0.75)]">
-            Housekeeping billed by verified time on-site. Linen billed by what a clean actually used.
-            Every turnover checked by AI against the property&apos;s own reference photos — soft-flagged
-            for a supervisor, never blocking the job. This is a working demo across five portals: the
-            back-office web platform, the owner and contractor portals, and the Owner &amp; Housekeeper
-            mobile apps.
+            One intelligent platform for managing your holiday letting business: automating operations,
+            verifying every turnover, optimising resources and giving you the insights to make better
+            decisions.
+          </p>
+          <p className="mt-3 max-w-2xl text-[15px] font-semibold leading-relaxed text-white">
+            More revenue. Lower costs. Less manual work.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link

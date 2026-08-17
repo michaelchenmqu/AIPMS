@@ -20,16 +20,23 @@ export default function MobileShell({
   const pathname = usePathname();
   return (
     <div className="min-h-screen bg-[var(--color-navy)] flex justify-center sm:py-8">
-      <div className="w-full sm:max-w-[430px] sm:rounded-[36px] sm:shadow-[0_40px_80px_rgba(0,0,0,0.35)] sm:overflow-hidden bg-[var(--color-sand-200)] flex flex-col sm:h-[880px]">
+      <div className="w-full sm:max-w-[430px] sm:rounded-[36px] sm:shadow-[0_40px_80px_rgba(0,0,0,0.35)] sm:overflow-hidden relative flex flex-col sm:h-[880px]">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: "url('/images/aipms-app-bg.jpg')" }}
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 bg-[var(--color-sand-200)]/88" aria-hidden="true" />
+
         {title && (
-          <div className="flex-none flex items-center justify-between px-4 py-3 bg-white border-b border-[var(--color-sand-300)]">
+          <div className="relative flex-none flex items-center justify-between px-4 py-3 bg-white/90 backdrop-blur-sm border-b border-[var(--color-sand-300)]">
             <span className="text-sm font-semibold text-[var(--color-navy)]">{title}</span>
             <SignOutButton className="text-xs text-[var(--color-muted)]" />
           </div>
         )}
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className="relative flex-1 overflow-y-auto">{children}</div>
         {tabs && (
-          <div className="flex-none flex border-t border-[var(--color-sand-300)] bg-white pb-safe">
+          <div className="relative flex-none flex border-t border-[var(--color-sand-300)] bg-white/90 backdrop-blur-sm pb-safe">
             {tabs.map((t) => {
               const active = pathname === t.href;
               return (
