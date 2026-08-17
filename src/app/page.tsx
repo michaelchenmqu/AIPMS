@@ -35,8 +35,8 @@ const PORTALS = [
 
 export default function Home() {
   return (
-    <div className="flex-1 bg-[var(--color-navy)] text-white">
-      <div className="relative overflow-hidden">
+    <div className="flex-1 bg-black text-white">
+      <div className="relative min-h-screen flex items-end overflow-hidden">
         <video
           className="absolute inset-0 w-full h-full object-cover"
           autoPlay
@@ -48,21 +48,21 @@ export default function Home() {
           <source src="/videos/aipms-homepage.mp4" type="video/mp4" />
           <source src="/videos/aipms-homepage.webm" type="video/webm" />
         </video>
-        <div className="absolute inset-0 bg-[var(--color-navy)]/80" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10" />
 
-        <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-14">
+        <div className="relative w-full max-w-5xl mx-auto px-6 pt-20 pb-16">
           <div className="text-xs font-semibold tracking-widest uppercase text-[var(--color-teal)] mb-4">
             AIPMS · AI-Powered Holiday Letting Platform
           </div>
-          <h1 className="font-[family-name:var(--font-serif)] text-4xl sm:text-5xl font-bold leading-tight max-w-2xl">
+          <h1 className="font-[family-name:var(--font-serif)] text-4xl sm:text-5xl font-bold leading-tight max-w-2xl drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
             Maximise Revenue. Reduce Costs. Let AI Run the Operations.
           </h1>
-          <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[rgba(255,255,255,0.75)]">
+          <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[rgba(255,255,255,0.85)] drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
             One intelligent platform for managing your holiday letting business: automating operations,
             verifying every turnover, optimising resources and giving you the insights to make better
             decisions.
           </p>
-          <p className="mt-3 max-w-2xl text-[15px] font-semibold leading-relaxed text-white">
+          <p className="mt-3 max-w-2xl text-[15px] font-semibold leading-relaxed text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
             More revenue. Lower costs. Less manual work.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -76,25 +76,27 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 pb-20">
-        <div className="mt-14 grid sm:grid-cols-2 gap-4">
-          {PORTALS.map((p) => (
-            <Link
-              key={p.title + p.tag}
-              href={p.href}
-              className="tap block rounded-2xl bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] p-5 hover:bg-[rgba(255,255,255,0.1)]"
-            >
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-teal)]">
-                {p.tag}
-              </div>
-              <div className="font-[family-name:var(--font-serif)] text-lg font-bold mt-1">{p.title}</div>
-              <div className="text-sm text-[rgba(255,255,255,0.65)] mt-1.5 leading-relaxed">{p.desc}</div>
-            </Link>
-          ))}
-        </div>
+      <div className="bg-[var(--color-navy)]">
+        <div className="max-w-5xl mx-auto px-6 py-16">
+          <div className="grid sm:grid-cols-3 gap-4">
+            {PORTALS.map((p) => (
+              <Link
+                key={p.title + p.tag}
+                href={p.href}
+                className="tap block rounded-2xl bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] p-5 hover:bg-[rgba(255,255,255,0.1)]"
+              >
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-teal)]">
+                  {p.tag}
+                </div>
+                <div className="font-[family-name:var(--font-serif)] text-lg font-bold mt-1">{p.title}</div>
+                <div className="text-sm text-[rgba(255,255,255,0.65)] mt-1.5 leading-relaxed">{p.desc}</div>
+              </Link>
+            ))}
+          </div>
 
-        <div className="mt-16 pt-8 border-t border-[rgba(255,255,255,0.12)] text-xs text-[rgba(255,255,255,0.5)]">
-          Demo build — see the repo README for demo credentials and what&apos;s stubbed vs. real.
+          <div className="mt-16 pt-8 border-t border-[rgba(255,255,255,0.12)] text-xs text-[rgba(255,255,255,0.5)]">
+            Demo build — see the repo README for demo credentials and what&apos;s stubbed vs. real.
+          </div>
         </div>
       </div>
     </div>
