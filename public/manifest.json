@@ -1,0 +1,13 @@
+{
+  "name": "AIPMS — AI-Powered Holiday Letting Platform",
+  "short_name": "AIPMS",
+  "description": "Usage-based property management for holiday letting.",
+  "start_url": "/redirect",
+  "display": "standalone",
+  "background_color": "#0b2b33",
+  "theme_color": "#0b2b33",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

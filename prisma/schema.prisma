@@ -1,0 +1,318 @@
+// AIPMS data model.
+// Demo-grade: SQLite for zero-config local/demo use. Swap the datasource
+// provider + DATABASE_URL to Postgres for a production deployment — the
+// schema itself is provider-agnostic.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STAFF // back-office / admin — the "web portal"
+  OWNER
+  CONTRACTOR // contractor company/admin
+  HOUSEKEEPER // individual worker under a contractor
+}
+
+enum ContractorType {
+  CLEANING
+  MAINTENANCE
+}
+
+enum ReservationStatus {
+  UPCOMING
+  IN_STAY
+  CHECKED_OUT
+}
+
+enum Channel {
+  AIRBNB
+  BOOKING_COM
+  STAYZ
+  DIRECT
+}
+
+enum JobType {
+  CLEANING
+  MAINTENANCE
+}
+
+enum JobStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  DONE
+}
+
+enum RoomKind {
+  LIVING_ROOM
+  BEDROOM
+  KITCHEN
+  BATHROOM
+}
+
+enum LinenItem {
+  QUEEN
+  SINGLE
+  BATH
+}
+
+enum InboxKind {
+  BOOKING
+  MAINTENANCE
+  GENERAL
+  COMPLAINT
+}
+
+enum InboxStatus {
+  OPEN
+  RESOLVED
+}
+
+enum WorkOrderStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+enum WorkOrderPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum StatementStatus {
+  ISSUED
+  PAID
+}
+
+enum LedgerType {
+  RENT_COLLECTED
+  OWNER_PAYOUT
+  COMMISSION
+  EXPENSE
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  ownerId      String?
+  owner        Owner?      @relation(fields: [ownerId], references: [id])
+  contractorId String?
+  contractor   Contractor? @relation(fields: [contractorId], references: [id])
+
+  assignedJobs Job[]         @relation("AssignedHousekeeper")
+  chatMessages ChatMessage[]
+}
+
+model Owner {
+  id         String     @id @default(cuid())
+  name       String
+  email      String     @unique
+  region     String?
+  createdAt  DateTime   @default(now())
+  users      User[]
+  properties Property[]
+  statements Statement[]
+  ledger     TrustLedgerEntry[]
+}
+
+model Contractor {
+  id         String         @id @default(cuid())
+  name       String
+  type       ContractorType
+  hourlyRate Float
+  createdAt  DateTime       @default(now())
+  users      User[]
+  jobs       Job[]
+}
+
+model Property {
+  id              String   @id @default(cuid())
+  name            String
+  address         String
+  region          String
+  ownerId         String
+  owner           Owner    @relation(fields: [ownerId], references: [id])
+  bedrooms        Int      @default(2)
+  bathrooms       Int      @default(1)
+  basePrice       Float    @default(220)
+  heroImage       String   @default("/images/property-placeholder.svg")
+  images          String   @default("[]") // JSON string array
+  referencePhotos String   @default("{}") // JSON: { LIVING_ROOM: url, ... }
+  airbnbScore     Int      @default(90)
+  bookingScore    Int      @default(88)
+  stayzScore      Int      @default(91)
+  linenParQueen   Int      @default(2)
+  linenParSingle  Int      @default(2)
+  linenParBath    Int      @default(3)
+  createdAt       DateTime @default(now())
+
+  reservations  Reservation[]
+  jobs          Job[]
+  workOrders    WorkOrder[]
+  inboxMessages InboxMessage[]
+  statements    Statement[]
+}
+
+model Reservation {
+  id          String            @id @default(cuid())
+  propertyId  String
+  property    Property          @relation(fields: [propertyId], references: [id])
+  guestName   String
+  channel     Channel
+  checkIn     DateTime
+  checkOut    DateTime
+  totalAmount Float
+  status      ReservationStatus @default(UPCOMING)
+  createdAt   DateTime          @default(now())
+
+  jobs Job[]
+}
+
+model Job {
+  id             String       @id @default(cuid())
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id])
+  reservationId  String?
+  reservation    Reservation? @relation(fields: [reservationId], references: [id])
+  contractorId   String
+  contractor     Contractor   @relation(fields: [contractorId], references: [id])
+  assignedUserId String?
+  assignedUser   User?        @relation("AssignedHousekeeper", fields: [assignedUserId], references: [id])
+
+  type   JobType   @default(CLEANING)
+  status JobStatus @default(PENDING)
+
+  // Server-verified timestamps — never trust a client-supplied clock for billing.
+  arrivalAt         DateTime?
+  arrivalPhotoUrl   String?
+  arrivalGeoLat     Float?
+  arrivalGeoLng     Float?
+  departureAt       DateTime?
+  departurePhotoUrl String?
+
+  hourlyRate    Float @default(28)
+  computedHours Float?
+  laborCost     Float?
+  linenCost     Float?
+  totalCost     Float?
+
+  createdAt DateTime @default(now())
+
+  roomChecks JobRoomCheck[]
+  linenUsage LinenUsage[]
+}
+
+model JobRoomCheck {
+  id            String    @id @default(cuid())
+  jobId         String
+  job           Job       @relation(fields: [jobId], references: [id])
+  room          RoomKind
+  afterPhotoUrl String?
+  matchPercent  Int?
+  flagged       Boolean   @default(false)
+  aiNote        String?
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  reviewNote    String?
+  createdAt     DateTime  @default(now())
+}
+
+model LinenUsage {
+  id       String    @id @default(cuid())
+  jobId    String
+  job      Job       @relation(fields: [jobId], references: [id])
+  item     LinenItem
+  quantity Int
+  unitCost Float
+}
+
+model WorkOrder {
+  id          String            @id @default(cuid())
+  propertyId  String
+  property    Property          @relation(fields: [propertyId], references: [id])
+  title       String
+  description String
+  status      WorkOrderStatus   @default(OPEN)
+  priority    WorkOrderPriority @default(MEDIUM)
+  createdAt   DateTime          @default(now())
+}
+
+model InboxMessage {
+  id         String    @id @default(cuid())
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+  fromName   String
+  fromEmail  String
+  channel    Channel   @default(DIRECT)
+  subject    String
+  body       String
+  status     InboxStatus @default(OPEN)
+
+  aiKind            InboxKind?
+  aiConfidence      Int?
+  aiPrimaryAction   String?
+  aiSecondaryAction String?
+
+  createdAt DateTime @default(now())
+}
+
+model Statement {
+  id          String          @id @default(cuid())
+  ownerId     String
+  owner       Owner           @relation(fields: [ownerId], references: [id])
+  propertyId  String
+  property    Property        @relation(fields: [propertyId], references: [id])
+  periodLabel String
+  issuedAt    DateTime        @default(now())
+  status      StatementStatus @default(ISSUED)
+  linenTotal  Float
+  laborTotal  Float
+  totalAmount Float
+
+  lineItems StatementLineItem[]
+}
+
+model StatementLineItem {
+  id          String    @id @default(cuid())
+  statementId String
+  statement   Statement @relation(fields: [statementId], references: [id])
+  label       String
+  detail      String?
+  amount      Float
+}
+
+model TrustLedgerEntry {
+  id      String     @id @default(cuid())
+  ownerId String
+  owner   Owner      @relation(fields: [ownerId], references: [id])
+  type    LedgerType
+  amount  Float
+  memo    String
+  date    DateTime   @default(now())
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  role      ChatRole
+  content   String
+  createdAt DateTime @default(now())
+}
