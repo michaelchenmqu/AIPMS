@@ -36,29 +36,46 @@ const PORTALS = [
 export default function Home() {
   return (
     <div className="flex-1 bg-[var(--color-navy)] text-white">
-      <div className="max-w-5xl mx-auto px-6 py-20">
-        <div className="text-xs font-semibold tracking-widest uppercase text-[var(--color-teal)] mb-4">
-          AIPMS · AI-Powered Holiday Letting Platform
-        </div>
-        <h1 className="font-[family-name:var(--font-serif)] text-4xl sm:text-5xl font-bold leading-tight max-w-2xl">
-          Bill owners for what actually happened — not a flat fee.
-        </h1>
-        <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[rgba(255,255,255,0.75)]">
-          Housekeeping billed by verified time on-site. Linen billed by what a clean actually used.
-          Every turnover checked by AI against the property&apos;s own reference photos — soft-flagged
-          for a supervisor, never blocking the job. This is a working demo across five portals: the
-          back-office web platform, the owner and contractor portals, and the Owner &amp; Housekeeper
-          mobile apps.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            href="/login"
-            className="tap inline-flex items-center justify-center rounded-[10px] bg-[var(--color-teal)] text-[var(--color-navy)] px-5 py-3 text-sm font-semibold"
-          >
-            Sign in to a demo account
-          </Link>
-        </div>
+      <div className="relative overflow-hidden">
+        <video
+          className="absolute inset-0 w-full h-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+        >
+          <source src="/videos/aipms-homepage.mp4" type="video/mp4" />
+          <source src="/videos/aipms-homepage.webm" type="video/webm" />
+        </video>
+        <div className="absolute inset-0 bg-[var(--color-navy)]/80" />
 
+        <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-14">
+          <div className="text-xs font-semibold tracking-widest uppercase text-[var(--color-teal)] mb-4">
+            AIPMS · AI-Powered Holiday Letting Platform
+          </div>
+          <h1 className="font-[family-name:var(--font-serif)] text-4xl sm:text-5xl font-bold leading-tight max-w-2xl">
+            Bill owners for what actually happened — not a flat fee.
+          </h1>
+          <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[rgba(255,255,255,0.75)]">
+            Housekeeping billed by verified time on-site. Linen billed by what a clean actually used.
+            Every turnover checked by AI against the property&apos;s own reference photos — soft-flagged
+            for a supervisor, never blocking the job. This is a working demo across five portals: the
+            back-office web platform, the owner and contractor portals, and the Owner &amp; Housekeeper
+            mobile apps.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              href="/login"
+              className="tap inline-flex items-center justify-center rounded-[10px] bg-[var(--color-teal)] text-[var(--color-navy)] px-5 py-3 text-sm font-semibold"
+            >
+              Sign in to a demo account
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-6 pb-20">
         <div className="mt-14 grid sm:grid-cols-2 gap-4">
           {PORTALS.map((p) => (
             <Link
