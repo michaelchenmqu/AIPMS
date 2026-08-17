@@ -1,14 +1,13 @@
 // AIPMS data model.
-// Demo-grade: SQLite for zero-config local/demo use. Swap the datasource
-// provider + DATABASE_URL to Postgres for a production deployment — the
-// schema itself is provider-agnostic.
+// Postgres (Neon in the deployed demo). The schema is otherwise
+// provider-agnostic — point DATABASE_URL at any Postgres instance.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

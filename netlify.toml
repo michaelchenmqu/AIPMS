@@ -1,10 +1,8 @@
 # Netlify configuration for AIPMS (Next.js full-stack app).
 #
-# Note: SQLite (the default DATABASE_URL) needs a persistent filesystem,
-# which serverless platforms (Netlify, Vercel) don't provide. Before
-# deploying here, point DATABASE_URL at a hosted Postgres instance (Neon,
-# Supabase, etc. all have free tiers) and set AUTH_SECRET + ANTHROPIC_API_KEY
-# in the Netlify site's environment variables. See README.md.
+# Requires DATABASE_URL (Postgres — Neon, Supabase, etc.), AUTH_SECRET, and
+# optionally ANTHROPIC_API_KEY set in the Netlify site's environment
+# variables. See README.md.
 
 [build]
   command = "npm run build"

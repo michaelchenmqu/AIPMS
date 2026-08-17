@@ -27,9 +27,8 @@ and one set of business rules:
 
 - **Next.js 16** (App Router, TypeScript, Tailwind CSS v4) — one app, every
   portal is a route group with its own auth guard and layout.
-- **Prisma + SQLite** for zero-config local/demo persistence. Swap the
-  datasource to Postgres for anything beyond a local demo (SQLite needs a
-  persistent filesystem, which serverless hosts don't provide).
+- **Prisma + Postgres** — [Neon](https://neon.tech) has a generous free tier
+  and is the fastest way to get a connection string, but any Postgres works.
 - **Auth.js (NextAuth v5)**, credentials provider, JWT sessions, role-based
   middleware (`src/proxy.ts`) gating every portal route.
 - **Anthropic API** (optional) powers AI clean-check, inbox classification,
@@ -39,8 +38,9 @@ and one set of business rules:
 
 ```bash
 npm install
-cp .env.example .env          # then set AUTH_SECRET (openssl rand -base64 32)
-npx prisma migrate dev         # creates prisma/dev.db and seeds demo data
+cp .env.example .env          # set DATABASE_URL (a Postgres connection string)
+                               # and AUTH_SECRET (openssl rand -base64 32)
+npx prisma migrate dev        # creates the schema and seeds demo data
 npm run dev
 ```
 
@@ -58,7 +58,8 @@ buttons for each.
 | `tom@aipms.demo` | Housekeeper | Housekeeper App, 1 accepted job |
 | `maint@aipms.demo` | Contractor | Contractor portal — South Coast Maintenance |
 
-If you need to wipe local data and reseed: `rm prisma/dev.db && npx prisma migrate dev`.
+If you need to wipe data and reseed, drop and recreate the schema on your
+Postgres instance, then run `npx prisma migrate dev` again.
 
 ## AI features
 
@@ -89,7 +90,7 @@ production posture described in the original design handoff, each flagged
 in code comments at the point it matters:
 
 - **Photo storage** — captured photos (key-box, room clean-checks) are stored
-  as inline base64 data URLs in SQLite (`src/app/api/housekeeper/jobs/[id]/arrival/route.ts`,
+  as inline base64 data URLs in Postgres (`src/app/api/housekeeper/jobs/[id]/arrival/route.ts`,
   `.../room-check/route.ts`). Production should upload to object storage and
   store a signed URL instead.
 - **Geofencing** — arrival/departure geo coordinates are recorded as reported
@@ -139,18 +140,22 @@ src/app/app/housekeeper/...  Housekeeper App (mobile)
 
 ## Deployment
 
-SQLite needs a persistent filesystem, so it's fine for local dev but not for
-serverless hosts (Vercel, Netlify). To deploy:
+Postgres works on any host — no serverless-filesystem constraints to work
+around. To deploy:
 
-1. Point `DATABASE_URL` at a hosted Postgres instance (Neon and Supabase both
-   have free tiers) and change `provider = "sqlite"` to `"postgresql"` in
-   `prisma/schema.prisma`.
+1. Point `DATABASE_URL` at your Postgres instance (Neon and Supabase both
+   have free tiers).
 2. Set `AUTH_SECRET` (generate with `openssl rand -base64 32`) and optionally
    `ANTHROPIC_API_KEY` in your host's environment variables.
-3. Run `npx prisma migrate deploy` against the new database, then `npm run
+3. Run `npx prisma migrate deploy` against the database, then `npm run
    db:seed` once to load demo data.
 4. Deploy — Vercel needs no extra config for Next.js; a `netlify.toml` using
    `@netlify/plugin-nextjs` is included for Netlify.
+
+The demo deployed at build time was seeded directly via SQL against Neon
+(see the migration in `prisma/migrations/`) rather than by running the
+Netlify build against a live `prisma migrate deploy` step — either approach
+works; a fresh deploy from scratch should just use the three steps above.
 
 ## Original design handoff
 
