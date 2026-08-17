@@ -50,12 +50,11 @@ export default function Home() {
         </video>
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10" />
 
-        <div className="relative w-full max-w-5xl mx-auto px-6 pt-20 pb-16">
-          <div className="text-xs font-semibold tracking-widest uppercase text-[var(--color-teal)] mb-4">
-            AIPMS · AI-Powered Holiday Letting Platform
-          </div>
+        <div className="relative w-full max-w-5xl mx-auto px-6 pt-20 pb-10">
           <h1 className="font-[family-name:var(--font-serif)] text-4xl sm:text-5xl font-bold leading-tight max-w-2xl drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
-            Maximise Revenue. Reduce Costs. Let AI Run the Operations.
+            <span className="block">Maximise Revenue.</span>
+            <span className="block">Reduce Costs.</span>
+            <span className="block">Run Smarter with AI.</span>
           </h1>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[rgba(255,255,255,0.85)] drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
             One intelligent platform for managing your holiday letting business: automating operations,
@@ -72,6 +71,9 @@ export default function Home() {
             >
               Sign in to a demo account
             </Link>
+          </div>
+          <div className="mt-10 text-xs font-semibold tracking-widest uppercase text-[var(--color-teal)]">
+            AIPMS · AI-Powered Holiday Letting Platform
           </div>
         </div>
       </div>
