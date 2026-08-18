@@ -102,6 +102,12 @@ enum ChatRole {
   ASSISTANT
 }
 
+enum CampaignStatus {
+  SCHEDULED
+  POSTED
+  NEEDS_REVIEW
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -167,6 +173,7 @@ model Property {
   workOrders    WorkOrder[]
   inboxMessages InboxMessage[]
   statements    Statement[]
+  campaigns     Campaign[]
 }
 
 model Reservation {
@@ -305,6 +312,32 @@ model TrustLedgerEntry {
   amount  Float
   memo    String
   date    DateTime   @default(now())
+}
+
+// AI-assisted social promotion of vacant nights, sourced from a gap in the
+// unified multi-channel calendar (see lib/marketing.ts#computeVacancies).
+model Campaign {
+  id           String   @id @default(cuid())
+  propertyId   String
+  property     Property @relation(fields: [propertyId], references: [id])
+  vacancyStart DateTime
+  vacancyEnd   DateTime
+
+  caption   String
+  hashtags  String @default("[]") // JSON string array
+  platforms String @default("[]") // JSON string array: INSTAGRAM | FACEBOOK | X
+
+  status      CampaignStatus @default(SCHEDULED)
+  reviewNote  String?
+  scheduledAt DateTime?
+  postedAt    DateTime?
+
+  reach              Int   @default(0)
+  clicks             Int   @default(0)
+  bookingsAttributed Int   @default(0)
+  revenueAttributed  Float @default(0)
+
+  createdAt DateTime @default(now())
 }
 
 model ChatMessage {

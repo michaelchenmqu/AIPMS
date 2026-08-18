@@ -1,7 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { PageHeader, KpiTile, Card, Badge, ScrollTable } from "@/components/ui";
 import { HorizontalBarChart } from "@/components/charts/BarChart";
+import { LineAreaChart, DualLineChart } from "@/components/charts/TrendChart";
 import { formatMoney, timeAgo, nowMs } from "@/lib/format";
+import { format } from "date-fns";
+
+// A representative flat-fee cleaning quote, for comparison against what
+// AIPMS actually billed per turnover (verified time + linen used).
+const FLAT_FEE_PER_TURNOVER = 190;
 
 export default async function DashboardPage() {
   const [properties, reservations, jobs, openWorkOrders, recentJobs, recentInbox] = await Promise.all([
@@ -40,6 +46,35 @@ export default async function DashboardPage() {
     .sort((a, b) => b.value - a.value)
     .slice(0, 7);
 
+  const revenueByMonth = new Map<string, { label: string; value: number }>();
+  for (const r of reservations) {
+    const key = format(r.checkIn, "yyyy-MM");
+    const entry = revenueByMonth.get(key) ?? { label: format(r.checkIn, "MMM"), value: 0 };
+    entry.value += r.totalAmount;
+    revenueByMonth.set(key, entry);
+  }
+  const revenueTrend = Array.from(revenueByMonth.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v);
+  const revDelta =
+    revenueTrend.length >= 2 && revenueTrend[0].value > 0
+      ? Math.round(((revenueTrend[revenueTrend.length - 1].value - revenueTrend[0].value) / revenueTrend[0].value) * 100)
+      : null;
+
+  const savingsByMonth = new Map<string, { label: string; a: number; b: number }>();
+  for (const j of jobs) {
+    if (!j.departureAt || j.totalCost == null) continue;
+    const key = format(j.departureAt, "yyyy-MM");
+    const entry = savingsByMonth.get(key) ?? { label: format(j.departureAt, "MMM"), a: 0, b: 0 };
+    entry.a += FLAT_FEE_PER_TURNOVER;
+    entry.b += j.totalCost;
+    savingsByMonth.set(key, entry);
+  }
+  const savingsTrend = Array.from(savingsByMonth.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v);
+  const totalSaved = savingsTrend.reduce((s, d) => s + (d.a - d.b), 0);
+
   const topProperties = [...properties]
     .map((p) => ({
       ...p,
@@ -65,6 +100,42 @@ export default async function DashboardPage() {
           tone={openWorkOrders > 0 ? "warning" : "success"}
         />
       </div>
+
+      {(revenueTrend.length >= 2 || savingsTrend.length >= 2) && (
+        <div className="grid lg:grid-cols-2 gap-4 mb-6">
+          {revenueTrend.length >= 2 && (
+            <Card className="p-6">
+              <div className="flex items-baseline justify-between mb-1">
+                <div className="text-sm font-semibold text-[var(--color-navy)]">Revenue trend</div>
+                {revDelta !== null && (
+                  <span
+                    className={`text-[11.5px] font-bold px-2 py-0.5 rounded-full ${
+                      revDelta >= 0 ? "text-[var(--color-success)] bg-[var(--color-success-bg)]" : "text-[var(--color-error)] bg-[var(--color-error-bg)]"
+                    }`}
+                  >
+                    {revDelta >= 0 ? "+" : ""}
+                    {revDelta}% vs {revenueTrend[0].label}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-[var(--color-muted)] mb-4">Portfolio revenue booked, by month — click a point</div>
+              <LineAreaChart data={revenueTrend} format="money" />
+            </Card>
+          )}
+          {savingsTrend.length >= 2 && (
+            <Card className="p-6">
+              <div className="flex items-baseline justify-between mb-1">
+                <div className="text-sm font-semibold text-[var(--color-navy)]">Usage-based billing savings</div>
+                <span className="text-[11.5px] font-bold px-2 py-0.5 rounded-full text-[var(--color-success)] bg-[var(--color-success-bg)]">
+                  {formatMoney(totalSaved)} saved
+                </span>
+              </div>
+              <div className="text-xs text-[var(--color-muted)] mb-4">Actual turnover cost vs. a flat-fee estimate — click a point</div>
+              <DualLineChart data={savingsTrend} aLabel="Flat-fee estimate" bLabel="Actual billed" format="money" />
+            </Card>
+          )}
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-5 gap-6">
         <Card className="lg:col-span-3 p-6">

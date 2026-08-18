@@ -9,8 +9,10 @@ import SignOutButton from "@/components/SignOutButton";
 const NAV = [
   { href: "/portal/trainer", label: "AI Trainer", icon: "✦" },
   { href: "/portal/dashboard", label: "Dashboard", icon: "▦" },
+  { href: "/portal/calendar", label: "Calendar", icon: "▧" },
   { href: "/portal/properties", label: "Property performance", icon: "◈" },
   { href: "/portal/reservations", label: "Reservations", icon: "▤" },
+  { href: "/portal/marketing", label: "Marketing", icon: "◔", badge: "NEW" },
   { href: "/portal/owners", label: "Owners", icon: "⌂" },
   { href: "/portal/inbox", label: "Inbox & enquiries", icon: "✉" },
   { href: "/portal/work-orders", label: "Work orders", icon: "🛠" },
@@ -39,6 +41,11 @@ function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigat
           >
             <span className="w-4 text-center">{item.icon}</span>
             {item.label}
+            {"badge" in item && item.badge && (
+              <span className="ml-auto text-[9px] font-bold tracking-wide text-[var(--color-navy)] bg-[var(--color-teal)] px-1.5 py-0.5 rounded-full">
+                {item.badge}
+              </span>
+            )}
           </Link>
         );
       })}

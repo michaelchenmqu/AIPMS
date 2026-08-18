@@ -302,6 +302,167 @@ async function main() {
   });
 
   // ---------------------------------------------------------------------
+  // Historical reservations + completed turnovers — gives the Dashboard's
+  // revenue trend and usage-based savings charts several months of real
+  // data to aggregate instead of a single current snapshot.
+  // ---------------------------------------------------------------------
+  const monthsAgo = (n: number) => new Date(Date.now() - n * 30 * 24 * 60 * 60 * 1000);
+  const historyProps = [islandOasis, bayRetreat, hilltopHideaway, priyaProps[0], priyaProps[1]];
+  const historyGuests = [
+    "The Whitfields", "M. Alvarez", "R. Novak", "S. Okafor", "K. Lindqvist",
+    "T. Reyes", "The Chens", "L. Fontaine", "P. Shah", "The Kowalskis",
+  ];
+  const historyChannels = ["AIRBNB", "BOOKING_COM", "STAYZ", "DIRECT"] as const;
+
+  let guestIdx = 0;
+  for (let m = 5; m >= 1; m--) {
+    for (let k = 0; k < 2; k++) {
+      const prop = historyProps[(m + k) % historyProps.length];
+      const nights = 3 + ((m + k) % 4);
+      const checkIn = new Date(monthsAgo(m).getTime() + k * 9 * 24 * 60 * 60 * 1000);
+      const checkOut = new Date(checkIn.getTime() + nights * 24 * 60 * 60 * 1000);
+      const baseAmount = 700 + (5 - m) * 220 + k * 340; // trends upward toward the present
+
+      const reservation = await prisma.reservation.create({
+        data: {
+          propertyId: prop.id,
+          guestName: historyGuests[guestIdx % historyGuests.length],
+          channel: historyChannels[guestIdx % historyChannels.length],
+          checkIn,
+          checkOut,
+          totalAmount: baseAmount,
+          status: "CHECKED_OUT",
+        },
+      });
+      guestIdx++;
+
+      await createCompletedJob({
+        propertyId: prop.id,
+        reservationId: reservation.id,
+        assignedUserId: k % 2 === 0 ? maria.id : tom.id,
+        contractorId: coastalClean.id,
+        arrivalHoursAgo: m * 30 * 24 - k * 9 * 24 - 4,
+        durationHours: 1 + ((m + k) % 3) * 0.4,
+        linen: [
+          { item: "QUEEN", quantity: 1 + (k % 2) },
+          { item: "SINGLE", quantity: 1 },
+          { item: "BATH", quantity: 2 + (m % 2) },
+        ],
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Marketing campaigns — AI-promoted vacancies, a mix of scheduled,
+  // posted (with simulated results), and one flagged for review.
+  // ---------------------------------------------------------------------
+  await prisma.campaign.createMany({
+    data: [
+      {
+        propertyId: islandOasis.id,
+        vacancyStart: daysFromNow(5),
+        vacancyEnd: daysFromNow(8),
+        caption: "3 nights just opened up at Island Oasis 🌊 Book direct and skip the platform fees — link in bio.",
+        hashtags: JSON.stringify(["#IslandOasis", "#ShoalhavenEscape", "#WeekendGetaway", "#DirectBooking"]),
+        platforms: JSON.stringify(["INSTAGRAM", "FACEBOOK"]),
+        status: "SCHEDULED",
+        scheduledAt: daysFromNow(1),
+      },
+      {
+        propertyId: bayRetreat.id,
+        vacancyStart: daysFromNow(12),
+        vacancyEnd: daysFromNow(15),
+        caption: "A rare gap at Bay Retreat — 3 nights, up for grabs. Book direct and skip the platform fees.",
+        hashtags: JSON.stringify(["#BayRetreat", "#VincentiaEscape", "#WeekendGetaway", "#DirectBooking"]),
+        platforms: JSON.stringify(["INSTAGRAM"]),
+        status: "SCHEDULED",
+        scheduledAt: daysFromNow(2),
+      },
+      {
+        propertyId: bayRetreat.id,
+        vacancyStart: daysAgo(19),
+        vacancyEnd: daysAgo(16),
+        caption: "3 nights just opened up at Bay Retreat. Book direct and skip the platform fees — link in bio.",
+        hashtags: JSON.stringify(["#BayRetreat", "#VincentiaEscape", "#WeekendGetaway", "#DirectBooking"]),
+        platforms: JSON.stringify(["INSTAGRAM", "FACEBOOK", "X"]),
+        status: "POSTED",
+        postedAt: daysAgo(21),
+        reach: 3850,
+        clicks: 140,
+        bookingsAttributed: 2,
+        revenueAttributed: 1480,
+      },
+      {
+        propertyId: hilltopHideaway.id,
+        vacancyStart: daysAgo(46),
+        vacancyEnd: daysAgo(43),
+        caption: "Hilltop Hideaway has 3 free nights this week. Book direct and skip the platform fees — link in bio.",
+        hashtags: JSON.stringify(["#HilltopHideaway", "#MollymookEscape", "#WeekendGetaway", "#DirectBooking"]),
+        platforms: JSON.stringify(["INSTAGRAM"]),
+        status: "POSTED",
+        postedAt: daysAgo(48),
+        reach: 2900,
+        clicks: 98,
+        bookingsAttributed: 1,
+        revenueAttributed: 890,
+      },
+      {
+        propertyId: priyaProps[0].id,
+        vacancyStart: daysAgo(75),
+        vacancyEnd: daysAgo(72),
+        caption: "A rare gap at Fern Gully Cottage — 3 nights, up for grabs. Book direct and skip the platform fees.",
+        hashtags: JSON.stringify(["#FernGullyCottage", "#BangalowEscape", "#WeekendGetaway", "#DirectBooking"]),
+        platforms: JSON.stringify(["FACEBOOK"]),
+        status: "POSTED",
+        postedAt: daysAgo(77),
+        reach: 2150,
+        clicks: 61,
+        bookingsAttributed: 1,
+        revenueAttributed: 650,
+      },
+      {
+        propertyId: islandOasis.id,
+        vacancyStart: daysAgo(103),
+        vacancyEnd: daysAgo(99),
+        caption: "4 nights just opened up at Island Oasis 🌊 Book direct and skip the platform fees — link in bio.",
+        hashtags: JSON.stringify(["#IslandOasis", "#ShoalhavenEscape", "#WeekendGetaway", "#DirectBooking"]),
+        platforms: JSON.stringify(["INSTAGRAM", "FACEBOOK"]),
+        status: "POSTED",
+        postedAt: daysAgo(105),
+        reach: 4200,
+        clicks: 165,
+        bookingsAttributed: 3,
+        revenueAttributed: 2100,
+      },
+      {
+        propertyId: priyaProps[1].id,
+        vacancyStart: daysAgo(134),
+        vacancyEnd: daysAgo(131),
+        caption: "Hinterland Barn has 3 free nights this week. Book direct and skip the platform fees — link in bio.",
+        hashtags: JSON.stringify(["#HinterlandBarn", "#FederalEscape", "#WeekendGetaway", "#DirectBooking"]),
+        platforms: JSON.stringify(["INSTAGRAM", "FACEBOOK"]),
+        status: "POSTED",
+        postedAt: daysAgo(136),
+        reach: 1700,
+        clicks: 44,
+        bookingsAttributed: 1,
+        revenueAttributed: 360,
+      },
+      {
+        propertyId: hilltopHideaway.id,
+        vacancyStart: daysFromNow(20),
+        vacancyEnd: daysFromNow(23),
+        caption:
+          "Big news! Hilltop Hideaway just had 3 incredible nights open up on the calendar and we could not be more excited to share this rare opportunity with everyone following along — book direct and skip the platform fees, link in bio, message us with any questions!",
+        hashtags: JSON.stringify(["#HilltopHideaway", "#MollymookEscape", "#WeekendGetaway", "#DirectBooking"]),
+        platforms: JSON.stringify(["INSTAGRAM"]),
+        status: "NEEDS_REVIEW",
+        reviewNote: "Caption exceeds recommended length for Instagram — trim before scheduling.",
+      },
+    ],
+  });
+
+  // ---------------------------------------------------------------------
   // Work orders
   // ---------------------------------------------------------------------
   await prisma.workOrder.createMany({
