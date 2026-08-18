@@ -94,6 +94,14 @@ body {
   border-radius: 8px;
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Guest App concierge bot */
 @keyframes bot-bob {
   0%, 100% { transform: translateY(0); }

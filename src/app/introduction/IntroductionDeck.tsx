@@ -1,7 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+
+function noopSubscribe() {
+  return () => {};
+}
+function getFullscreenSupport() {
+  return typeof document !== "undefined" && document.fullscreenEnabled === true;
+}
+function getFullscreenSupportServer() {
+  return false;
+}
 
 function BrowserFrame({ src, alt, maxH = "44vh" }: { src: string; alt: string; maxH?: string }) {
   return (
@@ -46,7 +56,7 @@ const SLIDES: Slide[] = [
   {
     id: "title",
     content: (
-      <div className="h-full flex flex-col items-center justify-center text-center px-10">
+      <div className="min-h-full flex flex-col items-center justify-center text-center px-10">
         <div className="text-[13px] font-semibold uppercase tracking-[0.3em] text-[var(--color-teal)] mb-3">
           Introduction
         </div>
@@ -70,7 +80,7 @@ const SLIDES: Slide[] = [
   {
     id: "problem",
     content: (
-      <div className="h-full flex flex-col justify-center px-10 sm:px-20">
+      <div className="min-h-full flex flex-col justify-center px-10 sm:px-20">
         <Kicker>The problem</Kicker>
         <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white max-w-2xl">
           Running a property portfolio today means stitching together five different tools.
@@ -94,7 +104,7 @@ const SLIDES: Slide[] = [
   {
     id: "revenue",
     content: (
-      <div className="h-full flex flex-col justify-center px-10 sm:px-16 py-10">
+      <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">
         <Kicker>Pillar one</Kicker>
         <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white">Maximise Revenue</h2>
         <div className="mt-8 grid lg:grid-cols-[1fr_1.3fr] gap-10 items-center">
@@ -122,7 +132,7 @@ const SLIDES: Slide[] = [
   {
     id: "costs",
     content: (
-      <div className="h-full flex flex-col justify-center px-10 sm:px-16 py-10">
+      <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">
         <Kicker>Pillar two</Kicker>
         <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white">Reduce Costs</h2>
         <div className="mt-8 grid lg:grid-cols-[1fr_1.3fr] gap-10 items-center">
@@ -150,7 +160,7 @@ const SLIDES: Slide[] = [
   {
     id: "ai",
     content: (
-      <div className="h-full flex flex-col justify-center px-10 sm:px-16 py-10">
+      <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">
         <Kicker>Pillar three</Kicker>
         <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white">Run Smarter with AI</h2>
         <div className="mt-8 grid lg:grid-cols-[1fr_1.3fr] gap-10 items-center">
@@ -179,7 +189,7 @@ const SLIDES: Slide[] = [
   {
     id: "portals",
     content: (
-      <div className="h-full flex flex-col justify-center px-10 sm:px-16 py-10">
+      <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">
         <Kicker>One platform</Kicker>
         <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white">
           Six connected experiences, one source of truth
@@ -211,7 +221,7 @@ const SLIDES: Slide[] = [
   {
     id: "guest-spotlight",
     content: (
-      <div className="h-full flex flex-col justify-center px-10 sm:px-16 py-10">
+      <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">
         <Kicker>New — Guest App</Kicker>
         <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white max-w-xl">
           The front desk, in every guest&apos;s pocket
@@ -241,7 +251,7 @@ const SLIDES: Slide[] = [
   {
     id: "recap",
     content: (
-      <div className="h-full flex flex-col items-center justify-center text-center px-10">
+      <div className="min-h-full flex flex-col items-center justify-center text-center px-10">
         <Kicker>Why AIPMS</Kicker>
         <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white max-w-2xl">
           Three outcomes. One platform.
@@ -267,7 +277,7 @@ const SLIDES: Slide[] = [
   {
     id: "cta",
     content: (
-      <div className="h-full flex flex-col items-center justify-center text-center px-10">
+      <div className="min-h-full flex flex-col items-center justify-center text-center px-10">
         <h2 className="font-[family-name:var(--font-serif)] text-4xl sm:text-5xl font-bold text-white">
           See it running, live.
         </h2>
@@ -299,14 +309,68 @@ const SLIDES: Slide[] = [
   },
 ];
 
+const HEADER_TOP = "max(1.25rem,calc(env(safe-area-inset-top) + 0.75rem))";
+const FOOTER_BOTTOM = "max(1.25rem,calc(env(safe-area-inset-bottom) + 0.5rem))";
+const SLIDE_PAD_TOP = "max(5rem,calc(env(safe-area-inset-top) + 4rem))";
+const SLIDE_PAD_BOTTOM = "max(4rem,calc(env(safe-area-inset-bottom) + 3rem))";
+
 export default function IntroductionDeck() {
   const [index, setIndex] = useState(0);
+  const indexRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const canFullscreen = useSyncExternalStore(noopSubscribe, getFullscreenSupport, getFullscreenSupportServer);
 
-  const go = useCallback((delta: number) => {
-    setIndex((i) => Math.min(SLIDES.length - 1, Math.max(0, i + delta)));
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+
+  const scrollToIndex = useCallback((i: number, smooth = true) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: smooth ? "smooth" : "auto" });
   }, []);
+
+  const goTo = useCallback(
+    (i: number) => {
+      const clamped = Math.min(SLIDES.length - 1, Math.max(0, i));
+      setIndex(clamped);
+      scrollToIndex(clamped);
+    },
+    [scrollToIndex]
+  );
+
+  const go = useCallback((delta: number) => goTo(indexRef.current + delta), [goTo]);
+
+  // Keep the counter/dots in sync with native swipe/scroll, without fighting it.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let raf = 0;
+    function onScroll() {
+      if (!el) return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const i = Math.round(el.scrollLeft / el.clientWidth);
+        setIndex((prev) => (prev === i ? prev : i));
+      });
+    }
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // Re-align on orientation change / resize so the current slide stays in view.
+  useEffect(() => {
+    function onResize() {
+      scrollToIndex(indexRef.current, false);
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [scrollToIndex]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -317,14 +381,14 @@ export default function IntroductionDeck() {
         e.preventDefault();
         go(-1);
       } else if (e.key === "Home") {
-        setIndex(0);
+        goTo(0);
       } else if (e.key === "End") {
-        setIndex(SLIDES.length - 1);
+        goTo(SLIDES.length - 1);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [go]);
+  }, [go, goTo]);
 
   useEffect(() => {
     function onFsChange() {
@@ -343,37 +407,46 @@ export default function IntroductionDeck() {
   }
 
   return (
-    <div ref={rootRef} className="fixed inset-0 bg-[var(--color-navy)] overflow-hidden select-none">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(31,184,172,0.12),_transparent_60%)]" />
+    <div ref={rootRef} className="fixed inset-0 bg-[var(--color-navy)] overflow-hidden">
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/images/introduction-bg.jpg)" }} />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,43,51,0.88),rgba(11,43,51,0.93)_45%,rgba(11,43,51,0.97))]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(31,184,172,0.14),_transparent_60%)]" />
 
-      {SLIDES.map((slide, i) => (
-        <div
-          key={slide.id}
-          className="absolute inset-0 transition-opacity duration-300"
-          style={{ opacity: i === index ? 1 : 0, pointerEvents: i === index ? "auto" : "none" }}
-          aria-hidden={i !== index}
-        >
-          {slide.content}
-        </div>
-      ))}
+      <div
+        ref={scrollRef}
+        className="relative h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory no-scrollbar"
+      >
+        {SLIDES.map((slide, i) => (
+          <div
+            key={slide.id}
+            className="w-screen h-full flex-shrink-0 snap-start snap-always overflow-y-auto overscroll-y-contain no-scrollbar"
+            style={{ paddingTop: SLIDE_PAD_TOP, paddingBottom: SLIDE_PAD_BOTTOM }}
+            aria-hidden={i !== index}
+          >
+            {slide.content}
+          </div>
+        ))}
+      </div>
 
-      <div className="absolute top-5 left-5 flex items-center gap-3">
+      <div className="absolute left-5 flex items-center gap-3" style={{ top: HEADER_TOP }}>
         <Link href="/" className="text-xs font-semibold text-[rgba(255,255,255,0.6)] hover:text-white">
           ← AIPMS
         </Link>
       </div>
 
-      <div className="absolute top-5 right-5 flex items-center gap-3">
+      <div className="absolute right-5 flex items-center gap-3" style={{ top: HEADER_TOP }}>
         <div className="text-xs font-mono text-[rgba(255,255,255,0.5)]">
           {index + 1} / {SLIDES.length}
         </div>
-        <button
-          type="button"
-          onClick={toggleFullscreen}
-          className="tap text-xs font-semibold rounded-lg bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.2)] text-white px-3 py-1.5 hover:bg-[rgba(255,255,255,0.18)]"
-        >
-          {isFullscreen ? "Exit fullscreen" : "Present"}
-        </button>
+        {canFullscreen && (
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="tap text-xs font-semibold rounded-lg bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.2)] text-white px-3 py-1.5 hover:bg-[rgba(255,255,255,0.18)]"
+          >
+            {isFullscreen ? "Exit fullscreen" : "Present"}
+          </button>
+        )}
       </div>
 
       <button
@@ -381,7 +454,7 @@ export default function IntroductionDeck() {
         onClick={() => go(-1)}
         disabled={index === 0}
         aria-label="Previous slide"
-        className="tap absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.15)] text-white flex items-center justify-center disabled:opacity-20 hover:bg-[rgba(255,255,255,0.16)]"
+        className="tap hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.15)] text-white items-center justify-center disabled:opacity-20 hover:bg-[rgba(255,255,255,0.16)]"
       >
         ‹
       </button>
@@ -390,17 +463,17 @@ export default function IntroductionDeck() {
         onClick={() => go(1)}
         disabled={index === SLIDES.length - 1}
         aria-label="Next slide"
-        className="tap absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.15)] text-white flex items-center justify-center disabled:opacity-20 hover:bg-[rgba(255,255,255,0.16)]"
+        className="tap hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.15)] text-white items-center justify-center disabled:opacity-20 hover:bg-[rgba(255,255,255,0.16)]"
       >
         ›
       </button>
 
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2">
+      <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2" style={{ bottom: FOOTER_BOTTOM }}>
         {SLIDES.map((slide, i) => (
           <button
             key={slide.id}
             type="button"
-            onClick={() => setIndex(i)}
+            onClick={() => goTo(i)}
             aria-label={`Go to slide ${i + 1}`}
             className={`tap h-1.5 rounded-full transition-all ${
               i === index ? "w-6 bg-[var(--color-teal)]" : "w-1.5 bg-[rgba(255,255,255,0.25)]"
