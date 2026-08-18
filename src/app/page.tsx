@@ -107,12 +107,12 @@ export default function Home() {
               Demo build — see the repo README for demo credentials and what&apos;s stubbed vs. real.
             </div>
             <a
-              href="/pitch"
+              href="/introduction"
               target="_blank"
               rel="noopener noreferrer"
               className="tap inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-teal)] hover:underline"
             >
-              View sales pitch deck ↗
+              View Introduction ↗
             </a>
           </div>
         </div>

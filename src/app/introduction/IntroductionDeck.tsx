@@ -14,7 +14,7 @@ function BrowserFrame({ src, alt, maxH = "44vh" }: { src: string; alt: string; m
         <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
         <span className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
       </div>
-      {/* eslint-disable-next-line @next/next/no-img-element -- pitch deck screenshot */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- introduction deck screenshot */}
       <img src={src} alt={alt} className="block w-auto object-contain object-top" style={{ maxHeight: `calc(${maxH} - 32px)` }} />
     </div>
   );
@@ -26,7 +26,7 @@ function PhoneFrame({ src, alt, maxH = "44vh" }: { src: string; alt: string; max
       className="inline-block rounded-[28px] overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.45)] border-4 border-[#1c1c1c]"
       style={{ maxHeight: maxH }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- pitch deck screenshot */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- introduction deck screenshot */}
       <img src={src} alt={alt} className="block w-auto h-full object-contain" style={{ maxHeight: maxH }} />
     </div>
   );
@@ -47,7 +47,10 @@ const SLIDES: Slide[] = [
     id: "title",
     content: (
       <div className="h-full flex flex-col items-center justify-center text-center px-10">
-        <div className="text-[13px] font-semibold uppercase tracking-[0.2em] text-[var(--color-teal)] mb-6">
+        <div className="text-[13px] font-semibold uppercase tracking-[0.3em] text-[var(--color-teal)] mb-3">
+          Introduction
+        </div>
+        <div className="text-[13px] font-semibold uppercase tracking-[0.2em] text-[rgba(255,255,255,0.5)] mb-6">
           AIPMS · AI-Powered Property Management
         </div>
         <h1 className="font-[family-name:var(--font-serif)] text-5xl sm:text-6xl font-bold leading-tight text-white max-w-3xl">
@@ -110,7 +113,7 @@ const SLIDES: Slide[] = [
             </li>
           </ul>
           <div className="flex justify-center">
-            <BrowserFrame src="/pitch/calendar.png" alt="Unified booking calendar with Promote action" maxH="56vh" />
+            <BrowserFrame src="/introduction/calendar.png" alt="Unified booking calendar with Promote action" maxH="56vh" />
           </div>
         </div>
       </div>
@@ -138,7 +141,7 @@ const SLIDES: Slide[] = [
             </li>
           </ul>
           <div className="flex justify-center">
-            <BrowserFrame src="/pitch/dashboard.png" alt="Staff dashboard with usage-based billing savings chart" maxH="56vh" />
+            <BrowserFrame src="/introduction/dashboard.png" alt="Staff dashboard with usage-based billing savings chart" maxH="56vh" />
           </div>
         </div>
       </div>
@@ -166,8 +169,8 @@ const SLIDES: Slide[] = [
             </li>
           </ul>
           <div className="flex items-end justify-center gap-6">
-            <BrowserFrame src="/pitch/ai-trainer.png" alt="AI Trainer chat drafting a pricing recommendation" maxH="48vh" />
-            <PhoneFrame src="/pitch/guest-assistant.png" alt="Guest App AI concierge chat" maxH="48vh" />
+            <BrowserFrame src="/introduction/ai-trainer.png" alt="AI Trainer chat drafting a pricing recommendation" maxH="48vh" />
+            <PhoneFrame src="/introduction/guest-assistant.png" alt="Guest App AI concierge chat" maxH="48vh" />
           </div>
         </div>
       </div>
@@ -183,16 +186,16 @@ const SLIDES: Slide[] = [
         </h2>
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-5">
           {[
-            ["Staff — Web portal", "/pitch/dashboard.png", "Back-office"],
-            ["Owner — Desktop", "/pitch/owner-portal.png", "Statements & growth"],
-            ["Contractor — Desktop", "/pitch/contractor-portal.png", "Jobs & payouts"],
-            ["Owner — Mobile App", "/pitch/owner-app.png", "On the go"],
-            ["Housekeeper — Mobile App", "/pitch/housekeeper-app.png", "Built for the field"],
-            ["Guest — Mobile App", "/pitch/guest-app.png", "No account needed"],
+            ["Staff — Web portal", "/introduction/dashboard.png", "Back-office"],
+            ["Owner — Desktop", "/introduction/owner-portal.png", "Statements & growth"],
+            ["Contractor — Desktop", "/introduction/contractor-portal.png", "Jobs & payouts"],
+            ["Owner — Mobile App", "/introduction/owner-app.png", "On the go"],
+            ["Housekeeper — Mobile App", "/introduction/housekeeper-app.png", "Built for the field"],
+            ["Guest — Mobile App", "/introduction/guest-app.png", "No account needed"],
           ].map(([title, img, tag]) => (
             <div key={title} className="flex flex-col gap-2.5">
               <div className="rounded-lg overflow-hidden border border-[rgba(255,255,255,0.15)] shadow-[0_16px_32px_rgba(0,0,0,0.4)] h-[150px] bg-[#1c1c1c]">
-                {/* eslint-disable-next-line @next/next/no-img-element -- pitch deck thumbnail */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- introduction deck thumbnail */}
                 <img src={img} alt={title} className="w-full h-full object-cover object-top" />
               </div>
               <div>
@@ -229,7 +232,7 @@ const SLIDES: Slide[] = [
             </li>
           </ul>
           <div className="flex justify-center gap-5">
-            <PhoneFrame src="/pitch/guest-app.png" alt="Guest App stay details screen" />
+            <PhoneFrame src="/introduction/guest-app.png" alt="Guest App stay details screen" />
           </div>
         </div>
       </div>
@@ -296,7 +299,7 @@ const SLIDES: Slide[] = [
   },
 ];
 
-export default function PitchDeck() {
+export default function IntroductionDeck() {
   const [index, setIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
