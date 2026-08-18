@@ -45,9 +45,11 @@ function decodeToken(token: string): { reservationId: string; exp: number } | nu
 
 /** Finds the reservation a guest is claiming, matching on last name +
  *  arrival date (and property, if the QR code they scanned carried one).
- *  Guests can verify from a few days before arrival through a few days
- *  after departure — not indefinitely, so a stale QR code eventually stops
- *  granting access. */
+ *  The arrival date can be the exact check-in date, or any date within the
+ *  stay — guests mid-stay often reach for "today" rather than remembering
+ *  their original check-in date. Verification is only possible from a few
+ *  days before arrival through a few days after departure — not
+ *  indefinitely, so a stale QR code eventually stops granting access. */
 export async function verifyGuestAccess(params: {
   lastName: string;
   arrivalDate: Date;
@@ -56,24 +58,38 @@ export async function verifyGuestAccess(params: {
   const lastName = params.lastName.trim().toLowerCase();
   if (!lastName) return null;
 
-  const dayStart = new Date(params.arrivalDate);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
+  const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+  const arrivalDayStart = new Date(params.arrivalDate);
+  arrivalDayStart.setHours(0, 0, 0, 0);
+  const arrivalDayEnd = new Date(arrivalDayStart.getTime() + 24 * 60 * 60 * 1000);
 
+  // Broad candidate fetch — the exact-date filtering happens below so a
+  // stay-spanning date (not just the literal check-in day) can still match.
   const candidates = await prisma.reservation.findMany({
     where: {
       ...(params.propertyId ? { propertyId: params.propertyId } : {}),
-      checkIn: { gte: dayStart, lt: dayEnd },
+      checkIn: { lt: arrivalDayEnd },
+      checkOut: { gt: new Date(arrivalDayStart.getTime() - threeDaysMs) },
     },
     include: { property: true },
   });
 
   const now = Date.now();
-  const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
   const match = candidates.find((r) => {
-    const nameMatches = r.guestName.toLowerCase().split(/\s+/).some((part) => part === lastName);
+    // Prefix match in either direction: seed/demo names are often
+    // family-style ("The Patels"), so a guest typing the singular form
+    // ("Patel") should still get in, and vice versa.
+    const nameMatches = r.guestName
+      .toLowerCase()
+      .split(/\s+/)
+      .some((part) => (part.length >= 3 && lastName.length >= 3 ? part.startsWith(lastName) || lastName.startsWith(part) : part === lastName));
     if (!nameMatches) return false;
+
+    // Accepted arrival-date entries: the exact check-in day, or any day
+    // within the stay (checkIn..checkOut inclusive).
+    const dateMatches = arrivalDayStart.getTime() < r.checkOut.getTime() && arrivalDayEnd.getTime() > r.checkIn.getTime();
+    if (!dateMatches) return false;
+
     const windowStart = r.checkIn.getTime() - threeDaysMs;
     const windowEnd = r.checkOut.getTime() + threeDaysMs;
     return now >= windowStart && now <= windowEnd;

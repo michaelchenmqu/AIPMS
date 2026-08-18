@@ -31,6 +31,12 @@ const PORTALS = [
     desc: "Job feed, arrival/departure capture, linen counters, and AI clean-check — built for the field.",
     tag: "Housekeeper · mobile",
   },
+  {
+    href: "/guest",
+    title: "Guest App",
+    desc: "Scan-in with last name + arrival date, stay details, wifi & house info, and a friendly AI concierge.",
+    tag: "Guest · mobile",
+  },
 ];
 
 export default function Home() {
