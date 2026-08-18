@@ -2,7 +2,12 @@ import Link from "next/link";
 import { requireOwnerScope } from "@/lib/owner";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, KpiTile, Badge } from "@/components/ui";
+import { LineAreaChart } from "@/components/charts/TrendChart";
+import { DonutChart } from "@/components/charts/DonutChart";
 import { formatMoney, formatDate, nowMs } from "@/lib/format";
+import { format } from "date-fns";
+
+const PALETTE = ["#1fb8ac", "#3d7ee8", "#e8615a", "#8b6fd8", "#c98a1a", "#137a4f"];
 
 export default async function OwnerOverviewPage() {
   const { owner } = await requireOwnerScope();
@@ -38,6 +43,31 @@ export default async function OwnerOverviewPage() {
 
   const latestJob = recentJobs[0];
 
+  const revenueByMonth = new Map<string, { label: string; value: number }>();
+  for (const r of reservations) {
+    const key = format(r.checkIn, "yyyy-MM");
+    const entry = revenueByMonth.get(key) ?? { label: format(r.checkIn, "MMM"), value: 0 };
+    entry.value += r.totalAmount;
+    revenueByMonth.set(key, entry);
+  }
+  const revenueTrend = Array.from(revenueByMonth.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v);
+  const revDelta =
+    revenueTrend.length >= 2 && revenueTrend[0].value > 0
+      ? Math.round(((revenueTrend[revenueTrend.length - 1].value - revenueTrend[0].value) / revenueTrend[0].value) * 100)
+      : null;
+
+  const revenueByProperty = owner.properties
+    .map((p, i) => ({
+      key: p.id,
+      label: p.name,
+      value: reservations.filter((r) => r.propertyId === p.id).reduce((s, r) => s + r.totalAmount, 0),
+      color: PALETTE[i % PALETTE.length],
+    }))
+    .filter((p) => p.value > 0)
+    .sort((a, b) => b.value - a.value);
+
   return (
     <div>
       <PageHeader title={`Welcome back, ${owner.name.split(" ")[0]}`} subtitle={`${owner.properties.length} homes · ${owner.region}`} />
@@ -46,6 +76,37 @@ export default async function OwnerOverviewPage() {
         <KpiTile label="Earnings MTD" value={formatMoney(earningsMtd)} />
         <KpiTile label="Occupancy (30d)" value={`${occupancy}%`} />
       </div>
+
+      {(revenueTrend.length >= 2 || revenueByProperty.length >= 2) && (
+        <div className="grid lg:grid-cols-2 gap-4 mb-6">
+          {revenueTrend.length >= 2 && (
+            <Card className="p-6">
+              <div className="flex items-baseline justify-between mb-1">
+                <div className="text-sm font-semibold text-[var(--color-navy)]">Earnings trend</div>
+                {revDelta !== null && (
+                  <span
+                    className={`text-[11.5px] font-bold px-2 py-0.5 rounded-full ${
+                      revDelta >= 0 ? "text-[var(--color-success)] bg-[var(--color-success-bg)]" : "text-[var(--color-error)] bg-[var(--color-error-bg)]"
+                    }`}
+                  >
+                    {revDelta >= 0 ? "+" : ""}
+                    {revDelta}% vs {revenueTrend[0].label}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-[var(--color-muted)] mb-4">Booking revenue by month — click a point</div>
+              <LineAreaChart data={revenueTrend} format="money" />
+            </Card>
+          )}
+          {revenueByProperty.length >= 2 && (
+            <Card className="p-6">
+              <div className="text-sm font-semibold text-[var(--color-navy)] mb-1">Revenue by property</div>
+              <div className="text-xs text-[var(--color-muted)] mb-4">Click a slice or a property to isolate it</div>
+              <DonutChart data={revenueByProperty} centerLabel="total revenue" format="money" />
+            </Card>
+          )}
+        </div>
+      )}
 
       {inStay.length > 0 && (
         <Card className="p-5 mb-6">
@@ -67,7 +128,7 @@ export default async function OwnerOverviewPage() {
       )}
 
       {latestJob && (
-        <Card className="p-6 bg-[var(--color-navy)]">
+        <Card className="p-6 !bg-[var(--color-navy)]">
           <div className="text-xs font-semibold uppercase tracking-wide text-[rgba(255,255,255,0.6)] mb-3">
             Latest turnover — usage-based · {latestJob.property.name}
           </div>

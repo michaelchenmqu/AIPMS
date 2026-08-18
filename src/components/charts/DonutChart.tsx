@@ -36,7 +36,8 @@ export function DonutChart({
   const selectedDatum = data.find((d) => d.key === selected) ?? null;
 
   return (
-    <div className="flex items-center gap-5">
+    <div className="@container">
+    <div className="flex flex-col @sm:flex-row items-center gap-4 @sm:gap-5">
       <div className="relative w-[180px] h-[180px] flex-none">
         <svg width="180" height="180" viewBox="0 0 180 180">
           <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-sand-200)" strokeWidth={24} />
@@ -71,7 +72,7 @@ export function DonutChart({
           </div>
         )}
       </div>
-      <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+      <div className="w-full @sm:flex-1 flex flex-col gap-1.5 min-w-0">
         {data.map((d) => {
           const isSel = selected === d.key;
           return (
@@ -82,13 +83,14 @@ export function DonutChart({
               style={{ background: isSel ? `${d.color}17` : undefined }}
             >
               <span className="w-2.5 h-2.5 rounded-[3px] flex-none" style={{ background: d.color }} />
-              <span className="text-[12.5px] font-semibold text-[var(--color-navy)] flex-1 truncate">{d.label}</span>
+              <span className="text-[12.5px] font-semibold text-[var(--color-navy)] flex-1 min-w-0 truncate">{d.label}</span>
               <span className="text-xs text-[var(--color-muted)] font-mono">{fmt(d.value)}</span>
               <span className="text-[11px] text-[var(--color-muted-2)] w-9 text-right">{Math.round((d.value / total) * 100)}%</span>
             </div>
           );
         })}
       </div>
+    </div>
     </div>
   );
 }
