@@ -166,7 +166,15 @@ model Property {
   linenParQueen   Int      @default(2)
   linenParSingle  Int      @default(2)
   linenParBath    Int      @default(3)
-  createdAt       DateTime @default(now())
+
+  // Guest-facing info, shown in the Guest App and drawn on by the AI
+  // concierge assistant.
+  wifiNetwork  String?
+  wifiPassword String?
+  checkoutTime String  @default("10:00 AM")
+  houseManual  String? // free-form: parking, bins, appliances, nearby food
+
+  createdAt DateTime @default(now())
 
   reservations  Reservation[]
   jobs          Job[]
@@ -188,7 +196,8 @@ model Reservation {
   status      ReservationStatus @default(UPCOMING)
   createdAt   DateTime          @default(now())
 
-  jobs Job[]
+  jobs              Job[]
+  guestChatMessages GuestChatMessage[]
 }
 
 model Job {
@@ -347,4 +356,15 @@ model ChatMessage {
   role      ChatRole
   content   String
   createdAt DateTime @default(now())
+}
+
+// AI concierge chat for the Guest App — scoped to a reservation rather
+// than a User, since guests never have an account.
+model GuestChatMessage {
+  id            String      @id @default(cuid())
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  role          ChatRole
+  content       String
+  createdAt     DateTime    @default(now())
 }

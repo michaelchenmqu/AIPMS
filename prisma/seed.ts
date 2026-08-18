@@ -96,9 +96,49 @@ async function main() {
 
   const jamesProps = await Promise.all(
     [
-      { name: "Island Oasis", address: "14 Ferry Rd, Huskisson NSW", basePrice: 285, bedrooms: 3, bathrooms: 2, airbnbScore: 96, bookingScore: 88, stayzScore: 91 },
-      { name: "Bay Retreat", address: "8 Elizabeth Dr, Vincentia NSW", basePrice: 240, bedrooms: 3, bathrooms: 1, airbnbScore: 93, bookingScore: 90, stayzScore: 89 },
-      { name: "Hilltop Hideaway", address: "22 Ridge Rd, Mollymook NSW", basePrice: 310, bedrooms: 4, bathrooms: 2, airbnbScore: 97, bookingScore: 92, stayzScore: 94 },
+      {
+        name: "Island Oasis",
+        address: "14 Ferry Rd, Huskisson NSW",
+        basePrice: 285,
+        bedrooms: 3,
+        bathrooms: 2,
+        airbnbScore: 96,
+        bookingScore: 88,
+        stayzScore: 91,
+        wifiNetwork: "IslandOasis_5G",
+        wifiPassword: "SunsetJetty22",
+        checkoutTime: "10:00 AM",
+        houseManual:
+          "Bins are around the side of the garage — general waste and recycling both collected Tuesdays. The BBQ gas bottle is under the deck; spare key for the shed is in the lockbox. Beach access is a 5-minute walk down Ferry Rd.",
+      },
+      {
+        name: "Bay Retreat",
+        address: "8 Elizabeth Dr, Vincentia NSW",
+        basePrice: 240,
+        bedrooms: 3,
+        bathrooms: 1,
+        airbnbScore: 93,
+        bookingScore: 90,
+        stayzScore: 89,
+        wifiNetwork: "BayRetreat_WiFi",
+        wifiPassword: "VincentiaSands7",
+        checkoutTime: "10:00 AM",
+        houseManual: "Parking is in the driveway — please don't block the neighbour's gate. Pool towels are in the laundry cupboard.",
+      },
+      {
+        name: "Hilltop Hideaway",
+        address: "22 Ridge Rd, Mollymook NSW",
+        basePrice: 310,
+        bedrooms: 4,
+        bathrooms: 2,
+        airbnbScore: 97,
+        bookingScore: 92,
+        stayzScore: 94,
+        wifiNetwork: "HilltopHideaway",
+        wifiPassword: "RidgeView2026",
+        checkoutTime: "10:30 AM",
+        houseManual: "Pool filter runs automatically, no need to touch it. Firewood for the pit is stacked under the carport.",
+      },
       { name: "Coastal Cabin", address: "3 Dowling St, Ulladulla NSW", basePrice: 195, bedrooms: 2, bathrooms: 1, airbnbScore: 90, bookingScore: 85, stayzScore: 88 },
       { name: "Lighthouse View", address: "56 Cave Beach Rd, Jervis Bay NSW", basePrice: 265, bedrooms: 3, bathrooms: 2, airbnbScore: 95, bookingScore: 89, stayzScore: 92 },
     ].map((p) =>
@@ -111,7 +151,20 @@ async function main() {
 
   const priyaProps = await Promise.all(
     [
-      { name: "Fern Gully Cottage", address: "19 Rainforest Way, Bangalow NSW", basePrice: 255, bedrooms: 2, bathrooms: 1, airbnbScore: 94, bookingScore: 87, stayzScore: 90 },
+      {
+        name: "Fern Gully Cottage",
+        address: "19 Rainforest Way, Bangalow NSW",
+        basePrice: 255,
+        bedrooms: 2,
+        bathrooms: 1,
+        airbnbScore: 94,
+        bookingScore: 87,
+        stayzScore: 90,
+        wifiNetwork: "FernGully_Cottage",
+        wifiPassword: "RainforestWalk9",
+        checkoutTime: "10:00 AM",
+        houseManual: "Watch for the resident water dragon by the creek — friendly, just don't feed it. Umbrellas are by the front door.",
+      },
       { name: "Hinterland Barn", address: "77 Federal Dr, Federal NSW", basePrice: 320, bedrooms: 4, bathrooms: 3, airbnbScore: 98, bookingScore: 93, stayzScore: 95 },
     ].map((p) =>
       prisma.property.create({

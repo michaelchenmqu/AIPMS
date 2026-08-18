@@ -215,6 +215,63 @@ export async function trainerChat(
 }
 
 // ---------------------------------------------------------------------------
+// Guest concierge — in-app chat assistant for the Guest App, helping a
+// guest locate things and answer practical questions during their stay
+// without needing to call the property manager.
+// ---------------------------------------------------------------------------
+export async function guestConciergeChat(
+  messages: { role: "user" | "assistant"; content: string }[],
+  property: {
+    name: string;
+    address: string;
+    wifiNetwork: string | null;
+    wifiPassword: string | null;
+    checkoutTime: string;
+    houseManual: string | null;
+  }
+): Promise<string> {
+  const systemPrompt = `You are the friendly in-house concierge assistant for "${property.name}" (${property.address}), a holiday rental. Help the guest currently staying there with practical questions — checkout time, wifi, parking, appliances, where things are, nearby food and attractions. Checkout is at ${property.checkoutTime}.${
+    property.wifiNetwork ? ` Wifi network: "${property.wifiNetwork}", password: "${property.wifiPassword}".` : ""
+  }${property.houseManual ? ` House notes: ${property.houseManual}` : ""} Be warm, concise, and concrete — a couple of short sentences, not an essay. If asked something you can't know (e.g. real-time weather), say so briefly and suggest a sensible alternative.`;
+
+  const c = client();
+  if (c) {
+    try {
+      const msg = await c.messages.create({
+        model: MODEL,
+        max_tokens: 400,
+        system: systemPrompt,
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      });
+      return msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+    } catch {
+      // fall through to mock
+    }
+  }
+
+  if (messages.length === 0) return "";
+  const last = messages[messages.length - 1]?.content.toLowerCase() ?? "";
+  if (/wifi|wi-fi|internet|password/.test(last)) {
+    return property.wifiNetwork
+      ? `You're all set — connect to "${property.wifiNetwork}" and the password is "${property.wifiPassword}". Let me know if it's not showing up!`
+      : `The wifi details should be on a card near the router — if you can't find it, message the host and they'll send it straight over.`;
+  }
+  if (/checkout|check out|check-out/.test(last)) {
+    return `Checkout is at ${property.checkoutTime}. Just pop the key back where you found it and pull the door shut behind you — no need to strip the beds.`;
+  }
+  if (/park|car/.test(last)) {
+    return `There's parking right at the property — pull in and you're set. Street parking nearby is fine too if the driveway's full.`;
+  }
+  if (/bin|rubbish|trash|garbage/.test(last)) {
+    return `Bins are usually tucked by the side of the house — general waste and recycling are both there, no need to take them anywhere.`;
+  }
+  if (/food|eat|restaurant|coffee|cafe/.test(last)) {
+    return `There are a few good spots an easy walk or short drive away — ask me for directions to something specific and I'll point you the right way once you're set up, or check the welcome folder for the host's local picks.`;
+  }
+  return `Happy to help! I can point you to wifi details, checkout info, parking, bins, or nearby food — what do you need?`;
+}
+
+// ---------------------------------------------------------------------------
 // Listing suggestions — shown on the owner's property/portfolio screen.
 // ---------------------------------------------------------------------------
 export async function generateListingSuggestions(params: {

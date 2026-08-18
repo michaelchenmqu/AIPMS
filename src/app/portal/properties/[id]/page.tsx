@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { headers } from "next/headers";
+import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge, KpiTile } from "@/components/ui";
 import { formatMoney, formatDate } from "@/lib/format";
@@ -21,6 +23,12 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const avgJobCost = property.jobs.length
     ? property.jobs.reduce((s, j) => s + (j.totalCost ?? 0), 0) / property.jobs.length
     : 0;
+
+  const hdrs = await headers();
+  const host = hdrs.get("host") ?? "localhost:3000";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  const guestUrl = `${proto}://${host}/guest?propertyId=${property.id}`;
+  const guestQrDataUrl = await QRCode.toDataURL(guestUrl, { margin: 1, width: 160, color: { dark: "#0b2b33" } });
 
   return (
     <div>
@@ -93,6 +101,24 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           </div>
         </Card>
       </div>
+
+      <Card className="p-6 mt-6">
+        <div className="text-sm font-semibold text-[var(--color-navy)] mb-1">Guest App access</div>
+        <div className="text-xs text-[var(--color-muted)] mb-4">
+          Print this on a welcome card — guests scan it, verify with their last name and arrival date, and get their
+          stay info plus an AI concierge for questions.
+        </div>
+        <div className="flex items-center gap-5 flex-wrap">
+          {/* eslint-disable-next-line @next/next/no-img-element -- generated QR code data URI */}
+          <img src={guestQrDataUrl} alt="Guest App QR code" className="w-[120px] h-[120px] rounded-lg border border-[var(--color-sand-300)]" />
+          <div className="min-w-0">
+            <div className="text-xs text-[var(--color-muted)] mb-1">Guest link</div>
+            <div className="text-xs font-mono text-[var(--color-navy)] break-all bg-[var(--color-sand-100)] rounded-lg px-3 py-2">
+              {guestUrl}
+            </div>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
