@@ -102,8 +102,18 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="mt-16 pt-8 border-t border-[rgba(255,255,255,0.12)] text-xs text-[rgba(255,255,255,0.5)]">
-            Demo build — see the repo README for demo credentials and what&apos;s stubbed vs. real.
+          <div className="mt-16 pt-8 border-t border-[rgba(255,255,255,0.12)] flex flex-wrap items-center justify-between gap-4">
+            <div className="text-xs text-[rgba(255,255,255,0.5)]">
+              Demo build — see the repo README for demo credentials and what&apos;s stubbed vs. real.
+            </div>
+            <a
+              href="/pitch"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tap inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-teal)] hover:underline"
+            >
+              View sales pitch deck ↗
+            </a>
           </div>
         </div>
       </div>
