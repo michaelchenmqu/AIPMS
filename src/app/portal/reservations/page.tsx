@@ -37,6 +37,7 @@ export default async function ReservationsPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab = "arrivals" } = await searchParams;
+  const pendingRequestCount = await prisma.guestRequest.count({ where: { status: "PENDING" } });
 
   if (tab === "requests") {
     const requests = await prisma.guestRequest.findMany({
@@ -47,7 +48,7 @@ export default async function ReservationsPage({
     return (
       <div>
         <PageHeader title="Reservations" subtitle="Arrivals, departures, and current stays across the portfolio" />
-        <ReservationTabs tab={tab} />
+        <ReservationTabs tab={tab} pendingRequestCount={pendingRequestCount} />
 
         <Card className="p-0 overflow-hidden">
           <ScrollTable>
@@ -133,7 +134,7 @@ export default async function ReservationsPage({
   return (
     <div>
       <PageHeader title="Reservations" subtitle="Arrivals, departures, and current stays across the portfolio" />
-      <ReservationTabs tab={tab} />
+      <ReservationTabs tab={tab} pendingRequestCount={pendingRequestCount} />
 
       <Card className="p-0 overflow-hidden">
         <ScrollTable>
@@ -182,7 +183,7 @@ export default async function ReservationsPage({
   );
 }
 
-function ReservationTabs({ tab }: { tab: string }) {
+function ReservationTabs({ tab, pendingRequestCount }: { tab: string; pendingRequestCount: number }) {
   return (
     <div className="flex gap-1 mb-5 bg-white rounded-xl p-1 w-fit shadow-[var(--shadow-card)]">
       {TABS.map((t) => (
@@ -190,11 +191,16 @@ function ReservationTabs({ tab }: { tab: string }) {
           key={t.key}
           href={`/portal/reservations?tab=${t.key}`}
           className={clsx(
-            "px-4 py-2 rounded-lg text-sm font-semibold",
+            "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold",
             tab === t.key ? "bg-[var(--color-navy)] text-white" : "text-[var(--color-muted)] hover:bg-[var(--color-sand-100)]"
           )}
         >
           {t.label}
+          {t.key === "requests" && pendingRequestCount > 0 && (
+            <span className="min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-[var(--color-error)] rounded-full flex items-center justify-center">
+              {pendingRequestCount > 99 ? "99+" : pendingRequestCount}
+            </span>
+          )}
         </Link>
       ))}
     </div>

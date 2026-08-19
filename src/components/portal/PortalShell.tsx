@@ -22,11 +22,20 @@ const NAV = [
   { href: "/portal/trust", label: "Trust accounting", icon: "⚖" },
 ];
 
-function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigate?: () => void }) {
+function NavLinks({
+  pathname,
+  onNavigate,
+  pendingRequestCount,
+}: {
+  pathname: string | null;
+  onNavigate?: () => void;
+  pendingRequestCount: number;
+}) {
   return (
     <nav className="flex-1 overflow-y-auto py-3">
       {NAV.map((item) => {
         const active = pathname?.startsWith(item.href);
+        const alertCount = item.href === "/portal/reservations" ? pendingRequestCount : 0;
         return (
           <Link
             key={item.href}
@@ -41,7 +50,12 @@ function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigat
           >
             <span className="w-4 text-center">{item.icon}</span>
             {item.label}
-            {"badge" in item && item.badge && (
+            {alertCount > 0 && (
+              <span className="ml-auto min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-[var(--color-error)] rounded-full flex items-center justify-center">
+                {alertCount > 99 ? "99+" : alertCount}
+              </span>
+            )}
+            {alertCount === 0 && "badge" in item && item.badge && (
               <span className="ml-auto text-[9px] font-bold tracking-wide text-[var(--color-navy)] bg-[var(--color-teal)] px-1.5 py-0.5 rounded-full">
                 {item.badge}
               </span>
@@ -56,9 +70,11 @@ function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigat
 export default function PortalShell({
   children,
   userName,
+  pendingRequestCount = 0,
 }: {
   children: ReactNode;
   userName: string;
+  pendingRequestCount?: number;
 }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -70,7 +86,7 @@ export default function PortalShell({
         <div className="px-5 py-5 font-[family-name:var(--font-serif)] text-lg font-bold border-b border-[rgba(255,255,255,0.1)]">
           AIPMS
         </div>
-        <NavLinks pathname={pathname} />
+        <NavLinks pathname={pathname} pendingRequestCount={pendingRequestCount} />
       </aside>
 
       {/* Mobile drawer */}
@@ -92,7 +108,7 @@ export default function PortalShell({
                 ×
               </button>
             </div>
-            <NavLinks pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
+            <NavLinks pathname={pathname} onNavigate={() => setDrawerOpen(false)} pendingRequestCount={pendingRequestCount} />
           </aside>
         </div>
       )}
