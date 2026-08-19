@@ -121,6 +121,11 @@ const SLIDES: Slide[] = [
               <span className="text-white font-semibold">Revenue trend visibility</span> for the whole portfolio, and
               per-property, so pricing and marketing decisions are backed by real numbers.
             </li>
+            <li>
+              <span className="text-white font-semibold">Guest-initiated upsells</span> — guests can request to extend
+              their stay right from the Guest App, with the nightly rate shown plainly. A low-pressure revenue channel
+              your team approves in one click, not a hard sell.
+            </li>
           </ul>
           <div className="flex justify-center">
             <BrowserFrame src="/introduction/calendar.png" alt="Unified booking calendar with Promote action" maxH="56vh" />
@@ -233,12 +238,18 @@ const SLIDES: Slide[] = [
               with just a last name and arrival date. No app download, no account.
             </li>
             <li>
-              <span className="text-white font-semibold">Everything about the stay</span> — dates, checkout time, wifi,
-              and house notes, on one screen.
+              <span className="text-white font-semibold">All the essentials</span> — dates, checkout time, wifi, and
+              house notes, on one screen.
             </li>
             <li>
-              <span className="text-white font-semibold">A friendly AI concierge</span> — an animated assistant that
-              answers questions instantly, day or night, without a call to the office.
+              <span className="text-white font-semibold">Self-serve stay requests</span> — extend the stay, early
+              check-in, late checkout and more, with the nightly rate shown plainly up front and approved by staff in
+              a tap — a low-pressure revenue channel, not a hard sell.
+            </li>
+            <li>
+              <span className="text-white font-semibold">Explore, rate, and chat</span> — a live weather forecast and
+              local recommendations, a quick star rating after checkout, and a friendly AI concierge answering
+              questions day or night.
             </li>
           </ul>
           <div className="flex justify-center gap-5">
@@ -254,13 +265,13 @@ const SLIDES: Slide[] = [
       <div className="min-h-full flex flex-col items-center justify-center text-center px-10">
         <Kicker>Why AIPMS</Kicker>
         <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white max-w-2xl">
-          Three outcomes. One platform.
+          Three groups. One platform, working for all of them.
         </h2>
         <div className="mt-10 grid sm:grid-cols-3 gap-6 max-w-4xl">
           {[
-            ["↑", "Maximise Revenue", "Spot every vacancy gap and fill it with an AI-drafted campaign in one click."],
-            ["↓", "Reduce Costs", "Pay for the turnover you actually got, verified — not a flat-fee guess."],
-            ["✦", "Run with AI", "An AI Trainer, marketer, clean-checker and concierge — built into every portal."],
+            ["⌂", "Owner satisfaction", "Usage-based billing, transparent statements, and AI growth suggestions — clear returns, not a black box."],
+            ["♥", "Guest experience", "Self-serve stay requests, local recommendations, and a friendly AI concierge — a great stay without a phone call."],
+            ["⚙", "Staff efficiency", "AI clean-check, inbox triage, and one-click campaigns — verified work, with far less manual chasing."],
           ].map(([icon, title, desc]) => (
             <div key={title} className="rounded-2xl bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] p-6">
               <div className="w-11 h-11 rounded-full bg-[var(--color-teal)] text-[var(--color-navy)] flex items-center justify-center text-xl font-bold mx-auto">

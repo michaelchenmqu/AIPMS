@@ -34,7 +34,7 @@ const PORTALS = [
   {
     href: "/guest",
     title: "Guest App",
-    desc: "Scan-in with last name + arrival date, stay details, wifi & house info, and a friendly AI concierge.",
+    desc: "Scan-in with last name + arrival date — stay details, self-serve requests to extend or adjust a stay, local weather & recommendations, post-stay feedback, and a friendly AI concierge.",
     tag: "Guest · mobile",
   },
 ];
@@ -68,7 +68,7 @@ export default function Home() {
             decisions.
           </p>
           <p className="mt-3 max-w-2xl text-[15px] font-semibold leading-relaxed text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
-            More revenue. Lower costs. Less manual work.
+            Happier owners. Better guest experience. More efficient staff.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
