@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { requireGuestScope } from "@/lib/guest";
 import { formatDate, nowMs } from "@/lib/format";
+import { prisma } from "@/lib/prisma";
 import GuestShell from "@/components/guest/GuestShell";
 import { differenceInCalendarDays } from "date-fns";
 
@@ -25,6 +27,9 @@ export default async function GuestStayPage() {
     phase = "past";
     phaseLabel = "Thanks for staying with us";
   }
+
+  const hasFeedback =
+    phase === "past" ? Boolean(await prisma.guestFeedback.findUnique({ where: { reservationId: reservation.id } })) : true;
 
   return (
     <GuestShell title={property.name} activeHref="/guest/stay">
@@ -95,6 +100,21 @@ export default async function GuestStayPage() {
             <div className="bg-white rounded-2xl p-3.5 text-sm text-[var(--color-text)] leading-relaxed">
               {property.houseManual}
             </div>
+          </div>
+        )}
+
+        {phase === "past" && !hasFeedback && (
+          <div className="px-5 pt-5">
+            <Link
+              href="/guest/feedback"
+              className="tap bg-white rounded-2xl p-4 flex items-center gap-3 border border-[var(--color-sand-300)]"
+            >
+              <div className="flex-1">
+                <div className="text-sm font-bold text-[var(--color-navy)]">How was your stay?</div>
+                <div className="text-xs text-[var(--color-muted)] mt-0.5">Leave a quick rating — it takes a minute.</div>
+              </div>
+              <div className="text-lg">⭐</div>
+            </Link>
           </div>
         )}
 

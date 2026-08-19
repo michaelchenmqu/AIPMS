@@ -317,3 +317,70 @@ export async function generateListingSuggestions(params: {
     `${lowestChannel} listing is your weakest channel score (${lowestScore}) — check for missing photos or an outdated description there.`,
   ];
 }
+
+// ---------------------------------------------------------------------------
+// Guest "Explore" recommendations — short, low-pressure local tips shown
+// alongside the weather forecast in the Guest App. Grounded in the
+// property's own address/region/house manual, same context the concierge
+// chat draws on. Even in AI mode this can invent specific business
+// details, so the UI pairs it with a "confirm with your host" caption.
+// ---------------------------------------------------------------------------
+export type GuestRecommendations = {
+  restaurants: { name: string; blurb: string }[];
+  activities: { name: string; blurb: string }[];
+  supermarkets: { name: string; blurb: string }[];
+  petrolStations: { name: string; blurb: string }[];
+};
+
+const EMPTY_RECOMMENDATIONS: GuestRecommendations = {
+  restaurants: [],
+  activities: [],
+  supermarkets: [],
+  petrolStations: [],
+};
+
+export async function guestRecommendations(property: {
+  id: string;
+  name: string;
+  address: string;
+  region: string;
+  houseManual: string | null;
+}): Promise<GuestRecommendations> {
+  const c = client();
+  if (c) {
+    try {
+      const msg = await c.messages.create({
+        model: MODEL,
+        max_tokens: 700,
+        messages: [
+          {
+            role: "user",
+            content: `You're writing short, low-key local tips for guests staying at "${property.name}" (${property.address}, ${property.region}).${
+              property.houseManual ? ` The host's own notes: ${property.houseManual}` : ""
+            } For each of these 4 categories, give 2-3 real, plausible nearby options with a one-sentence blurb each, in a warm, editorial tone — not a sales pitch: restaurants, activities (scenic spots/things to do), supermarkets, petrolStations. Respond ONLY with JSON: {"restaurants": [{"name": string, "blurb": string}], "activities": [...], "supermarkets": [...], "petrolStations": [...]}.`,
+          },
+        ],
+      });
+      const text = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+      const parsed = extractJson<GuestRecommendations>(text, EMPTY_RECOMMENDATIONS);
+      if (parsed.restaurants?.length || parsed.activities?.length) return parsed;
+    } catch {
+      // fall through to mock
+    }
+  }
+
+  const r = seededRandom(property.id);
+  const areaWord = property.region.split(/[&,]/)[0].trim() || "the area";
+  return {
+    restaurants: [
+      { name: "The local favourite", blurb: `A short drive from ${property.name} — ask your host for their current top pick in ${areaWord}.` },
+      { name: "Quick bite option", blurb: "Good for a casual takeaway on the way back from the beach or trails." },
+    ],
+    activities: [
+      { name: "Nearby lookout or beach", blurb: `Worth the trip if you're around ${areaWord} — check tide/weather before heading out.` },
+      { name: "Local market or walk", blurb: `Runs most weekends, ${Math.round(15 + r * 10)} minutes away.` },
+    ],
+    supermarkets: [{ name: "Nearest supermarket", blurb: "A few minutes' drive — your host's welcome notes usually have the closest one." }],
+    petrolStations: [{ name: "Nearest petrol station", blurb: "Worth fuelling up before longer day trips out of town." }],
+  };
+}

@@ -7,6 +7,8 @@ export type GuestTab = { href: string; label: string; icon: string };
 
 const TABS: GuestTab[] = [
   { href: "/guest/stay", label: "Stay", icon: "⌂" },
+  { href: "/guest/explore", label: "Explore", icon: "🧭" },
+  { href: "/guest/requests", label: "Requests", icon: "✎" },
   { href: "/guest/assistant", label: "Assistant", icon: "✦" },
 ];
 
