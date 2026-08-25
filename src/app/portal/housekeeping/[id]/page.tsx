@@ -3,7 +3,13 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge, KpiTile } from "@/components/ui";
 import { formatMoney, formatDateTime } from "@/lib/format";
-import { reviewRoomCheck } from "./actions";
+import { ReviewActions } from "@/components/portal/ReviewActions";
+
+const REVIEW_TONE: Record<string, "success" | "error" | "warning"> = {
+  APPROVED: "success",
+  REJECTED: "error",
+  RETURNED: "warning",
+};
 
 const ROOM_LABEL: Record<string, string> = {
   LIVING_ROOM: "Living room",
@@ -116,13 +122,14 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               {rc.flagged && (
                 <div className="mt-2">
                   {rc.reviewedAt ? (
-                    <Badge tone="success">Reviewed by {rc.reviewedBy}</Badge>
+                    <div className="flex flex-col gap-1">
+                      {rc.reviewStatus && <Badge tone={REVIEW_TONE[rc.reviewStatus]}>{rc.reviewStatus}</Badge>}
+                      <span className="text-[11px] text-[var(--color-muted-2)]">
+                        {rc.reviewNote} — {rc.reviewedBy}
+                      </span>
+                    </div>
                   ) : (
-                    <form action={reviewRoomCheck.bind(null, rc.id, "Looks fine on review")}>
-                      <button className="tap text-xs font-semibold bg-[var(--color-warning)] text-white rounded-lg px-3 py-1.5">
-                        Mark reviewed
-                      </button>
-                    </form>
+                    <ReviewActions roomCheckId={rc.id} />
                   )}
                 </div>
               )}

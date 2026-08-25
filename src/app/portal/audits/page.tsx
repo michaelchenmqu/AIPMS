@@ -2,7 +2,13 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge, ScrollTable } from "@/components/ui";
 import { timeAgo } from "@/lib/format";
-import { reviewRoomCheck } from "../housekeeping/[id]/actions";
+import { ReviewActions } from "@/components/portal/ReviewActions";
+
+const REVIEW_TONE: Record<string, "success" | "error" | "warning"> = {
+  APPROVED: "success",
+  REJECTED: "error",
+  RETURNED: "warning",
+};
 
 const ROOM_LABEL: Record<string, string> = {
   LIVING_ROOM: "Living room",
@@ -48,14 +54,8 @@ export default async function AuditsPage() {
               <Badge tone="warning">{rc.matchPercent}% match</Badge>
             </div>
             <p className="text-xs text-[var(--color-muted)] mt-2">{rc.aiNote}</p>
-            <div className="flex items-center justify-between mt-3">
-              <span className="text-[11px] text-[var(--color-muted-2)]">{timeAgo(rc.createdAt)}</span>
-              <form action={reviewRoomCheck.bind(null, rc.id, "Reviewed — no action needed")}>
-                <button className="tap text-xs font-semibold bg-[var(--color-navy)] text-white rounded-lg px-3 py-1.5">
-                  Approve
-                </button>
-              </form>
-            </div>
+            <div className="text-[11px] text-[var(--color-muted-2)] mt-3">{timeAgo(rc.createdAt)}</div>
+            <ReviewActions roomCheckId={rc.id} />
           </Card>
         ))}
         {pending.length === 0 && (
@@ -76,6 +76,9 @@ export default async function AuditsPage() {
               <tr key={rc.id} className="border-t border-[var(--color-sand-200)] first:border-t-0">
                 <td className="px-5 py-3 font-medium text-[var(--color-navy)]">{rc.job.property.name}</td>
                 <td className="px-5 py-3 text-[var(--color-muted)]">{ROOM_LABEL[rc.room]}</td>
+                <td className="px-5 py-3">
+                  {rc.reviewStatus && <Badge tone={REVIEW_TONE[rc.reviewStatus]}>{rc.reviewStatus}</Badge>}
+                </td>
                 <td className="px-5 py-3 text-[var(--color-muted)]">{rc.reviewNote}</td>
                 <td className="px-5 py-3 text-right text-xs text-[var(--color-muted-2)]">
                   {rc.reviewedBy} · {rc.reviewedAt && timeAgo(rc.reviewedAt)}

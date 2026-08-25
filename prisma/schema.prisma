@@ -55,6 +55,12 @@ enum RoomKind {
   BATHROOM
 }
 
+enum ReviewStatus {
+  APPROVED
+  REJECTED
+  RETURNED
+}
+
 enum LinenItem {
   QUEEN
   SINGLE
@@ -253,6 +259,7 @@ model JobRoomCheck {
   reviewedAt    DateTime?
   reviewedBy    String?
   reviewNote    String?
+  reviewStatus  ReviewStatus?
   createdAt     DateTime  @default(now())
 }
 
