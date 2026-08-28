@@ -104,6 +104,12 @@ the demo site keeps working with zero configuration:
 - **Resend** (`src/lib/email.ts`, `RESEND_API_KEY`) — sends the "Email"
   campaign platform as a real email via Resend's free tier. Unset, it logs
   instead of sending.
+- **WhatsApp Cloud API** (`src/lib/whatsapp.ts`, `WHATSAPP_ACCESS_TOKEN` +
+  `WHATSAPP_PHONE_NUMBER_ID` + `WHATSAPP_VERIFY_TOKEN`) — guest WhatsApp
+  messages land in the staff Inbox (`Channel.WHATSAPP`) via
+  `src/app/api/whatsapp/webhook/route.ts`, AI-classified the same as every
+  other inbox source; staff reply inline from the Inbox card. Same Meta app
+  as the Page/Instagram integration above, different product.
 
 A campaign posted with real credentials configured stores the resulting
 `facebookPostId`/`instagramPostId` on the `Campaign` row; if any selected

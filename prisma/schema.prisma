@@ -34,6 +34,7 @@ enum Channel {
   BOOKING_COM
   STAYZ
   DIRECT
+  WHATSAPP
 }
 
 enum JobType {
@@ -298,7 +299,12 @@ model InboxMessage {
   propertyId String?
   property   Property? @relation(fields: [propertyId], references: [id])
   fromName   String
-  fromEmail  String
+  // One of these two identifies the sender, depending on channel — email for
+  // Airbnb/Booking.com/Stayz/Direct, phone (E.164, from the WhatsApp Cloud
+  // API's webhook payload) for WhatsApp. Whichever the channel doesn't use
+  // stays null.
+  fromEmail  String?
+  fromPhone  String?
   channel    Channel   @default(DIRECT)
   subject    String
   body       String

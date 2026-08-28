@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { timeAgo } from "@/lib/format";
-import { resolveMessage, createWorkOrderFromMessage } from "./actions";
+import { resolveMessage, createWorkOrderFromMessage, replyToWhatsApp } from "./actions";
 
 const KIND_TONE: Record<string, "info" | "error" | "warning" | "neutral"> = {
   BOOKING: "info",
@@ -15,6 +15,7 @@ const CHANNEL_LABEL: Record<string, string> = {
   BOOKING_COM: "Booking.com",
   STAYZ: "Stayz",
   DIRECT: "Direct",
+  WHATSAPP: "WhatsApp",
 };
 
 export default async function InboxPage() {
@@ -37,7 +38,7 @@ export default async function InboxPage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-semibold text-[var(--color-navy)]">{m.fromName}</span>
-                  <span className="text-xs text-[var(--color-muted)]">{m.fromEmail}</span>
+                  <span className="text-xs text-[var(--color-muted)]">{m.fromEmail ?? m.fromPhone}</span>
                   <Badge tone="neutral">{CHANNEL_LABEL[m.channel]}</Badge>
                   {m.property && <Badge tone="teal">{m.property.name}</Badge>}
                   {m.status === "RESOLVED" && <Badge tone="success">Resolved</Badge>}
@@ -45,6 +46,20 @@ export default async function InboxPage() {
                 <div className="text-sm font-semibold text-[var(--color-text)] mt-1.5">{m.subject}</div>
                 <p className="text-sm text-[var(--color-muted)] mt-1 line-clamp-2">{m.body}</p>
                 <div className="text-[11px] text-[var(--color-muted-2)] mt-2">{timeAgo(m.createdAt)}</div>
+
+                {m.channel === "WHATSAPP" && m.fromPhone && m.status !== "RESOLVED" && (
+                  <form action={replyToWhatsApp.bind(null, m.id)} className="flex gap-2 mt-3">
+                    <input
+                      name="body"
+                      required
+                      placeholder="Reply via WhatsApp…"
+                      className="flex-1 min-w-0 border border-[var(--color-sand-400)] rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-teal)]"
+                    />
+                    <button className="tap shrink-0 text-xs font-semibold text-white rounded-lg px-3 py-1.5" style={{ background: "#25D366" }}>
+                      Send
+                    </button>
+                  </form>
+                )}
               </div>
 
               <div className="shrink-0 text-right w-56">
