@@ -24,6 +24,11 @@ export async function sendEmail(params: {
 }): Promise<{ sent: boolean; id?: string }> {
   const resend = client();
   const from = process.env.RESEND_FROM_EMAIL ?? "AIPMS <onboarding@resend.dev>";
+  // Resend can only send "from" a domain we've verified — it can't send as
+  // a Gmail/Hotmail/etc. address. reply_to is how a real inbox (the staff
+  // portal's live contact address) still gets the reply, without needing
+  // domain ownership.
+  const replyTo = process.env.REPLY_TO_EMAIL;
 
   if (!resend) {
     console.log(`[email:mock] to=${params.to} subject="${params.subject}"`);
@@ -35,6 +40,7 @@ export async function sendEmail(params: {
     to: params.to,
     subject: params.subject,
     html: params.html,
+    ...(replyTo ? { replyTo } : {}),
   });
   if (error) throw new Error(error.message);
   return { sent: true, id: data?.id };
