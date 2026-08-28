@@ -5,6 +5,8 @@ import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge, KpiTile } from "@/components/ui";
 import { formatMoney, formatDate } from "@/lib/format";
+import { isChannexConfigured } from "@/lib/channex";
+import { connectPropertyToChannex } from "../actions";
 
 export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -119,6 +121,25 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           </div>
         </div>
       </Card>
+
+      {isChannexConfigured() && (
+        <Card className="p-6 mt-6">
+          <div className="text-sm font-semibold text-[var(--color-navy)] mb-1">Channel manager</div>
+          <div className="text-xs text-[var(--color-muted)] mb-4">
+            Connects this property to Airbnb, Booking.com, and Stayz through Channex — rates and availability sync
+            out, bookings sync back in automatically.
+          </div>
+          {property.channexPropertyId ? (
+            <Badge tone="success">Connected · {property.channexPropertyId}</Badge>
+          ) : (
+            <form action={connectPropertyToChannex.bind(null, property.id)}>
+              <button className="tap text-sm font-semibold text-[var(--color-teal-dark)] hover:underline">
+                Connect to Channex →
+              </button>
+            </form>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

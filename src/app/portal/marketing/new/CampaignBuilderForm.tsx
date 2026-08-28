@@ -9,6 +9,7 @@ const PLATFORMS: { key: string; label: string; short: string; bg: string }[] = [
   { key: "INSTAGRAM", label: "Instagram", short: "IG", bg: "#c8395a" },
   { key: "FACEBOOK", label: "Facebook", short: "FB", bg: "#3d7ee8" },
   { key: "X", label: "X", short: "X", bg: "#14232e" },
+  { key: "EMAIL", label: "Email", short: "@", bg: "#128577" },
 ];
 
 export default function CampaignBuilderForm({
@@ -27,6 +28,7 @@ export default function CampaignBuilderForm({
   const [caption, setCaption] = useState(draft.caption);
   const [hashtags, setHashtags] = useState(draft.hashtags.join(", "));
   const [platforms, setPlatforms] = useState<string[]>(["INSTAGRAM", "FACEBOOK"]);
+  const [emailRecipient, setEmailRecipient] = useState("");
   const [scheduleMode, setScheduleMode] = useState<"now" | "schedule">("schedule");
   const [scheduledAt, setScheduledAt] = useState(() => {
     const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -98,6 +100,16 @@ export default function CampaignBuilderForm({
         {platforms.map((p) => (
           <input key={p} type="hidden" name="platforms" value={p} />
         ))}
+        {platforms.includes("EMAIL") && (
+          <input
+            type="email"
+            name="emailRecipient"
+            value={emailRecipient}
+            onChange={(e) => setEmailRecipient(e.target.value)}
+            placeholder="owner or guest-list email address"
+            className="w-full border border-[var(--color-sand-400)] rounded-[10px] p-2.5 text-xs mt-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--color-teal)]"
+          />
+        )}
 
         <label className="block text-[11px] font-bold uppercase tracking-wide text-[var(--color-muted-2)] mt-6 mb-2">
           When

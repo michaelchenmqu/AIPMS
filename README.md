@@ -82,6 +82,34 @@ product story still demos end-to-end:
 Set `ANTHROPIC_API_KEY` in `.env` to switch all four over to real model
 calls — nothing else needs to change.
 
+## Live integrations
+
+Three more integrations follow the exact same real-call-behind-an-env-var
+pattern as the AI features above — unset, they run as a no-op/simulation so
+the demo site keeps working with zero configuration:
+
+- **Channex.io** (`src/lib/channex.ts`, `CHANNEX_API_KEY`) — channel-manager
+  connectivity to Airbnb/Booking.com/Stayz. "Connect to Channex" on a staff
+  property page registers the property; `src/app/api/channex/webhook/route.ts`
+  receives booking create/update/cancel events back and upserts a
+  `Reservation`, idempotent on `externalId` so retried webhooks never
+  duplicate a booking. Written against Channex's documented API shape —
+  confirm field names against `docs.channex.io` on the first real account.
+- **Meta Graph API** (`src/lib/meta.ts`, `META_PAGE_ACCESS_TOKEN` +
+  `META_PAGE_ID`/`META_IG_USER_ID`) — posts a Marketing campaign straight to
+  a Facebook Page and/or Instagram Business account. Needs `SITE_URL` set to
+  a real public domain — Meta rejects localhost/relative image URLs. Also
+  gated by Meta's own App Review for permissions beyond a token's test
+  users, which is a Meta-side process, not something this codebase controls.
+- **Resend** (`src/lib/email.ts`, `RESEND_API_KEY`) — sends the "Email"
+  campaign platform as a real email via Resend's free tier. Unset, it logs
+  instead of sending.
+
+A campaign posted with real credentials configured stores the resulting
+`facebookPostId`/`instagramPostId` on the `Campaign` row; if any selected
+platform fails to publish, the campaign lands in **Needs review** with the
+error as its review note instead of silently losing the attempt.
+
 ## What's real vs. demo-simplified
 
 This is a **demo-grade** build: real database, real auth, real billing math,
@@ -118,10 +146,13 @@ in code comments at the point it matters:
   query to the signed-in owner/contractor/housekeeper — an owner can never
   load another owner's property or statement (see the 404 checks in every
   `[id]` route).
-- **Future PMS integration**: reservation/property/owner data lives behind
-  Prisma models with no hardcoded coupling to a specific channel manager —
-  see `prisma/schema.prisma`. Swapping in a real sync from Guesty or another
-  PMS means writing an importer into these same tables, not touching the UI.
+- **Channel manager integration**: `src/lib/channex.ts` is the only place
+  that talks to Channex; reservation/property data otherwise lives behind
+  plain Prisma models with no hardcoded coupling to it (see
+  `prisma/schema.prisma`'s `Property.channexPropertyId` /
+  `Reservation.externalId`). Swapping in a different channel manager, or a
+  direct sync from another PMS, means writing a new client against these
+  same tables, not touching the UI.
 
 ## Repo structure
 

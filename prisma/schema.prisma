@@ -185,6 +185,11 @@ model Property {
   latitude  Float?
   longitude Float?
 
+  // Set once a staff member connects this property through Channex — see
+  // lib/channex.ts. Null means the property's calendar is still
+  // manually-managed / seed data only.
+  channexPropertyId String?
+
   createdAt DateTime @default(now())
 
   reservations  Reservation[]
@@ -206,6 +211,11 @@ model Reservation {
   totalAmount Float
   status      ReservationStatus @default(UPCOMING)
   createdAt   DateTime          @default(now())
+
+  // The OTA/Channex booking reference. Null for seed/manually-entered
+  // reservations. Unique so a re-delivered webhook upserts instead of
+  // duplicating a booking.
+  externalId String? @unique
 
   jobs              Job[]
   guestChatMessages GuestChatMessage[]
@@ -348,12 +358,23 @@ model Campaign {
 
   caption   String
   hashtags  String @default("[]") // JSON string array
-  platforms String @default("[]") // JSON string array: INSTAGRAM | FACEBOOK | X
+  platforms String @default("[]") // JSON string array: INSTAGRAM | FACEBOOK | X | EMAIL
 
   status      CampaignStatus @default(SCHEDULED)
   reviewNote  String?
   scheduledAt DateTime?
   postedAt    DateTime?
+
+  // Only used when "EMAIL" is one of the platforms — who the campaign email
+  // goes to. No subscriber-list model exists yet, so this is set explicitly
+  // per campaign rather than resolved from one.
+  emailRecipient String?
+
+  // Set when a post actually publishes through Meta's Graph API (real
+  // credentials configured) rather than being simulated — lets the UI link
+  // out to the live post instead of just showing simulated numbers.
+  facebookPostId  String?
+  instagramPostId String?
 
   reach              Int   @default(0)
   clicks             Int   @default(0)
