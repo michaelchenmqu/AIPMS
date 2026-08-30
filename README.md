@@ -104,6 +104,15 @@ the demo site keeps working with zero configuration:
 - **Resend** (`src/lib/email.ts`, `RESEND_API_KEY`) — sends the "Email"
   campaign platform as a real email via Resend's free tier. Unset, it logs
   instead of sending.
+- **Basiq** (`src/lib/basiq.ts`, `BASIQ_API_KEY`) — connects a trust bank
+  account (Basiq's sandbox, with fake test institutions, during
+  development) for the Trust accounting page's three-way reconciliation:
+  bank balance, ledger balance, and the sum of every owner's balance all
+  have to match. Transactions auto-match to ledger entries by amount and
+  date; anything ambiguous is left for a staff member to match by hand.
+  Unset, the Trust accounting page just shows the ledger, no bank
+  connection — this is new functionality, not a fallback for something
+  that used to be manual.
 - **WhatsApp Cloud API** (`src/lib/whatsapp.ts`, `WHATSAPP_ACCESS_TOKEN` +
   `WHATSAPP_PHONE_NUMBER_ID` + `WHATSAPP_VERIFY_TOKEN`) — guest WhatsApp
   messages land in the staff Inbox (`Channel.WHATSAPP`) via
@@ -135,6 +144,14 @@ in code comments at the point it matters:
 - **AI cost controls** — the original spec calls for rate-limiting/caching AI
   calls per job. The demo calls the API directly; add a queue + cache layer
   before scaling real usage.
+- **AML/CTF compliance** — AUSTRAC's AML/CTF regime became mandatory for
+  Australian real estate agents on 1 July 2026 (customer due diligence,
+  suspicious-matter reporting, on top of the standard trust-account rules
+  the Trust accounting page's reconciliation targets). This is a real legal
+  compliance program requiring the client's own compliance/legal sign-off
+  on scope and process — this codebase deliberately does not implement it,
+  and flags it prominently on the Trust accounting page instead of
+  pretending it's handled.
 
 ## Architecture notes
 

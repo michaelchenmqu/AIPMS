@@ -351,6 +351,54 @@ model TrustLedgerEntry {
   amount  Float
   memo    String
   date    DateTime   @default(now())
+
+  // Set once this entry is matched to a real bank line during reconciliation
+  // — see BankTransaction. Null means still unreconciled.
+  bankTransaction BankTransaction?
+}
+
+enum BankConnectionStatus {
+  PENDING
+  ACTIVE
+  FAILED
+}
+
+// The agency's single pooled trust bank account — one connection, not one
+// per owner (owner-level balances come from summing TrustLedgerEntry by
+// ownerId, the second leg of the required three-way reconciliation: bank
+// balance vs. ledger balance vs. sum of owner balances).
+//
+// NOTE ON ACCURACY: written against Basiq's documented Connect flow
+// (basiq.io) — server token, a Basiq user per connection, a hosted consent
+// redirect, transactions pulled after. Not yet exercised against a real
+// Basiq sandbox account. Confirm exact field/endpoint names against
+// Basiq's docs during the first real connection.
+model BankConnection {
+  id                String               @id @default(cuid())
+  basiqUserId       String
+  basiqConnectionId String?
+  institutionName   String?
+  status            BankConnectionStatus @default(PENDING)
+  createdAt         DateTime             @default(now())
+
+  transactions BankTransaction[]
+}
+
+model BankTransaction {
+  id                 String   @id @default(cuid())
+  connectionId       String
+  connection         BankConnection @relation(fields: [connectionId], references: [id])
+  basiqTransactionId String   @unique
+  date               DateTime
+  description        String
+  amount             Float
+  createdAt          DateTime @default(now())
+
+  // Staff (or the auto-match heuristic) links this to the ledger entry it
+  // represents. Null means still unreconciled — the whole point of this
+  // table existing.
+  matchedLedgerEntryId String?           @unique
+  matchedLedgerEntry   TrustLedgerEntry? @relation(fields: [matchedLedgerEntryId], references: [id])
 }
 
 // AI-assisted social promotion of vacant nights, sourced from a gap in the
