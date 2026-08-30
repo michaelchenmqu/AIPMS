@@ -18,7 +18,12 @@ const CHANNEL_LABEL: Record<string, string> = {
   WHATSAPP: "WhatsApp",
 };
 
-export default async function InboxPage() {
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ whatsappError?: string }>;
+}) {
+  const { whatsappError } = await searchParams;
   const messages = await prisma.inboxMessage.findMany({
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: { property: true },
@@ -30,6 +35,12 @@ export default async function InboxPage() {
         title="Inbox & enquiries"
         subtitle="Guest, owner, and channel messages — AI-classified with a suggested action"
       />
+
+      {whatsappError && (
+        <div className="text-sm text-[var(--color-error)] bg-[var(--color-error-bg)] rounded-lg px-4 py-3 mb-5">
+          Couldn&apos;t send that WhatsApp reply: {whatsappError}
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         {messages.map((m) => (
