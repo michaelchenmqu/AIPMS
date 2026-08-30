@@ -24,7 +24,10 @@
 import { prisma } from "@/lib/prisma";
 import type { Channel } from "@prisma/client";
 
-const API_BASE = "https://app.channex.io/api/v1";
+// Defaults to Channex's production host; set CHANNEX_API_BASE when the
+// account lives elsewhere — e.g. Channex's own staging/sandbox environment
+// (https://staging.channex.io/api/v1) during development.
+const API_BASE = process.env.CHANNEX_API_BASE ?? "https://app.channex.io/api/v1";
 
 export function isChannexConfigured(): boolean {
   return Boolean(process.env.CHANNEX_API_KEY);
