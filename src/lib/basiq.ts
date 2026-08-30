@@ -25,6 +25,9 @@ export function isBasiqConfigured(): boolean {
   return Boolean(process.env.BASIQ_API_KEY);
 }
 
+// The dashboard hands out this key already base64-encoded (a
+// clientId:clientSecret pair) — use it directly as the Basic auth value,
+// don't re-encode it.
 async function getServerToken(): Promise<string> {
   const apiKey = process.env.BASIQ_API_KEY;
   if (!apiKey) throw new Error("BASIQ_API_KEY is not set");
@@ -32,7 +35,7 @@ async function getServerToken(): Promise<string> {
   const res = await fetch(`${API_BASE}/token`, {
     method: "POST",
     headers: {
-      Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString("base64")}`,
+      Authorization: `Basic ${apiKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
       "basiq-version": "3.0",
     },
@@ -75,7 +78,7 @@ export async function getConnectUrl(basiqUserId: string): Promise<string> {
   const res = await fetch(`${API_BASE}/token`, {
     method: "POST",
     headers: {
-      Authorization: `Basic ${Buffer.from(`${process.env.BASIQ_API_KEY}:`).toString("base64")}`,
+      Authorization: `Basic ${process.env.BASIQ_API_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded",
       "basiq-version": "3.0",
     },
