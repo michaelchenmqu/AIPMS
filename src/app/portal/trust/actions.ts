@@ -8,11 +8,20 @@ import { createTrustBankUser, getConnectUrl, syncTransactions } from "@/lib/basi
 
 /** Staff action, "Connect trust bank account" on the Trust accounting page.
  *  Creates the Basiq user + a PENDING BankConnection, then redirects to
- *  Basiq's hosted consent flow — see lib/basiq.ts. */
+ *  Basiq's hosted consent flow — see lib/basiq.ts. A Basiq API failure
+ *  here is a real, expected-in-early-testing scenario (wrong permission
+ *  set, unverified account details, etc.) — report it instead of
+ *  crashing the page. */
 export async function connectTrustBank() {
   await requireRole("STAFF");
-  const { basiqUserId } = await createTrustBankUser();
-  const url = await getConnectUrl(basiqUserId);
+  let url: string;
+  try {
+    const { basiqUserId } = await createTrustBankUser();
+    url = await getConnectUrl(basiqUserId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to connect trust bank account.";
+    redirect(`/portal/trust?basiqError=${encodeURIComponent(message)}`);
+  }
   redirect(url);
 }
 

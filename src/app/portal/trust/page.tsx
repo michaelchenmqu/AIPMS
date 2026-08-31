@@ -4,7 +4,12 @@ import { formatMoney, formatDate } from "@/lib/format";
 import { isBasiqConfigured } from "@/lib/basiq";
 import { connectTrustBank, syncTrustBank, unmatchTransaction, matchTransaction } from "./actions";
 
-export default async function TrustAccountingPage() {
+export default async function TrustAccountingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ basiqError?: string }>;
+}) {
+  const { basiqError } = await searchParams;
   const [entries, connection] = await Promise.all([
     prisma.trustLedgerEntry.findMany({
       include: { owner: true, bankTransaction: true },
@@ -37,6 +42,12 @@ export default async function TrustAccountingPage() {
   return (
     <div>
       <PageHeader title="Trust accounting" subtitle="Rent collected, commission, expenses, owner payouts, and bank reconciliation" />
+
+      {basiqError && (
+        <div className="text-sm text-[var(--color-error)] bg-[var(--color-error-bg)] rounded-lg px-4 py-3 mb-5">
+          Couldn&apos;t connect the trust bank account: {basiqError}
+        </div>
+      )}
 
       <Card className="p-5 mb-6 border-l-[3px] border-l-[var(--color-warning)]">
         <div className="text-sm font-semibold text-[var(--color-navy)] mb-1">AML/CTF — action needed before any real client goes live</div>
