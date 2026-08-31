@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge, KpiTile, ScrollTable, Button } from "@/components/ui";
 import { formatMoney, formatDate } from "@/lib/format";
 import { isBasiqConfigured } from "@/lib/basiq";
-import { connectTrustBank, syncTrustBank, unmatchTransaction, matchTransaction } from "./actions";
+import { connectTrustBank, syncTrustBank, unmatchTransaction, matchTransaction, disconnectTrustBank } from "./actions";
 
 export default async function TrustAccountingPage({
   searchParams,
@@ -108,9 +108,16 @@ export default async function TrustAccountingPage({
               </div>
             )}
 
-            <form action={syncTrustBank.bind(null, connection.id)} className="mb-5">
-              <Button type="submit" variant="outline">Sync transactions →</Button>
-            </form>
+            <div className="flex items-center gap-3 mb-5">
+              <form action={syncTrustBank.bind(null, connection.id)}>
+                <Button type="submit" variant="outline">Sync transactions →</Button>
+              </form>
+              <form action={disconnectTrustBank.bind(null, connection.id)}>
+                <button className="tap text-xs text-[var(--color-muted)] hover:text-[var(--color-error)]">
+                  Disconnect &amp; retry
+                </button>
+              </form>
+            </div>
 
             <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-muted-2)] mb-2.5">
               Owner balances

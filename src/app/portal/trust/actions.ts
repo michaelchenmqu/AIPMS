@@ -50,6 +50,17 @@ async function autoMatch() {
   }
 }
 
+/** Staff action, "Disconnect" on the Trust accounting page — lets staff
+ *  retry from scratch after a failed or wrong bank pick (e.g. selecting a
+ *  real bank instead of a sandbox test institution), without needing a
+ *  manual database fix each time. */
+export async function disconnectTrustBank(connectionId: string) {
+  await requireRole("STAFF");
+  await prisma.bankTransaction.deleteMany({ where: { connectionId } });
+  await prisma.bankConnection.delete({ where: { id: connectionId } });
+  revalidatePath("/portal/trust");
+}
+
 export async function syncTrustBank(connectionId: string) {
   await requireRole("STAFF");
   await syncTransactions(connectionId);
