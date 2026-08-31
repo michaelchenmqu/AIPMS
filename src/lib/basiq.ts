@@ -52,6 +52,10 @@ async function getServerToken(): Promise<string> {
  *  src/app/portal/trust/actions.ts. */
 export async function createTrustBankUser(): Promise<{ connectionId: string; basiqUserId: string }> {
   const token = await getServerToken();
+  // Basiq requires an email or mobile to create a user. This represents
+  // the agency's trust account, not an individual, so there's no real
+  // email to use — a unique placeholder is fine, Basiq never sends it
+  // anything, it's just an identifier.
   const res = await fetch(`${API_BASE}/users`, {
     method: "POST",
     headers: {
@@ -59,7 +63,7 @@ export async function createTrustBankUser(): Promise<{ connectionId: string; bas
       "Content-Type": "application/json",
       "basiq-version": "3.0",
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ email: `trust-${Date.now()}@aipms.local` }),
   });
   if (!res.ok) throw new Error(`Basiq create user error (${res.status}): ${await res.text()}`);
   const body = await res.json();
