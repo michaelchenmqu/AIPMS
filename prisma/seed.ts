@@ -613,6 +613,16 @@ async function main() {
       subject: "When does my June statement come through?",
       body: "Just checking when the June statement for Island Oasis will be issued — want to reconcile against my own records.",
     },
+    {
+      propertyId: islandOasis.id,
+      fromName: "Sarah Mitchell",
+      // ACMA-reserved fictional mobile number (04 91 57 0xxx block, set aside
+      // for drama/demo use) — not a real guest's number.
+      fromPhone: "+61491570156",
+      channel: "WHATSAPP" as const,
+      subject: "WhatsApp message",
+      body: "Hi! We're loving our stay at Island Oasis so far 🌴 Would it be possible to check out an hour later on Sunday, around 11am instead of 10am?",
+    },
   ];
 
   for (const seed of inboxSeeds) {
@@ -621,7 +631,8 @@ async function main() {
       data: {
         propertyId: seed.propertyId,
         fromName: seed.fromName,
-        fromEmail: seed.fromEmail,
+        fromEmail: "fromEmail" in seed ? seed.fromEmail : null,
+        fromPhone: "fromPhone" in seed ? seed.fromPhone : null,
         channel: seed.channel,
         subject: seed.subject,
         body: seed.body,
@@ -687,6 +698,37 @@ async function main() {
       { ownerId: priya.id, type: "RENT_COLLECTED", amount: 4360, memo: "June bookings — 2 properties", date: daysAgo(14) },
       { ownerId: priya.id, type: "COMMISSION", amount: -436, memo: "Platform commission (10%)", date: daysAgo(14) },
       { ownerId: priya.id, type: "OWNER_PAYOUT", amount: -3924, memo: "June payout to Priya Anand", date: daysAgo(7) },
+    ],
+  });
+
+  // ---------------------------------------------------------------------
+  // Trust bank reconciliation — a demo Basiq sandbox connection with bank
+  // lines matched against the ledger entries above, so the reconciliation
+  // view has something real to show without a live Basiq connection. One
+  // line (the cleaning invoice) is deliberately left unmatched to
+  // demonstrate the manual-match flow.
+  // ---------------------------------------------------------------------
+  const ledgerByMemo = await prisma.trustLedgerEntry.findMany();
+  const findEntry = (ownerId: string, type: string) =>
+    ledgerByMemo.find((e) => e.ownerId === ownerId && e.type === type)!.id;
+
+  const bankConnection = await prisma.bankConnection.create({
+    data: {
+      basiqUserId: "demo-basiq-user",
+      basiqConnectionId: "demo-basiq-connection",
+      institutionName: "Demo Trust Account (Basiq sandbox)",
+      status: "ACTIVE",
+    },
+  });
+  await prisma.bankTransaction.createMany({
+    data: [
+      { connectionId: bankConnection.id, basiqTransactionId: "demo-tx-jf-rent", date: daysAgo(14), description: "EFT RECEIPT - OTA SETTLEMENT JF", amount: 14985, matchedLedgerEntryId: findEntry(james.id, "RENT_COLLECTED") },
+      { connectionId: bankConnection.id, basiqTransactionId: "demo-tx-pa-rent", date: daysAgo(14), description: "EFT RECEIPT - OTA SETTLEMENT PA", amount: 4360, matchedLedgerEntryId: findEntry(priya.id, "RENT_COLLECTED") },
+      { connectionId: bankConnection.id, basiqTransactionId: "demo-tx-jf-comm", date: daysAgo(14), description: "TRANSFER TO OPERATING A/C - COMMISSION", amount: -1498.5, matchedLedgerEntryId: findEntry(james.id, "COMMISSION") },
+      { connectionId: bankConnection.id, basiqTransactionId: "demo-tx-pa-comm", date: daysAgo(14), description: "TRANSFER TO OPERATING A/C - COMMISSION", amount: -436, matchedLedgerEntryId: findEntry(priya.id, "COMMISSION") },
+      { connectionId: bankConnection.id, basiqTransactionId: "demo-tx-jf-clean", date: daysAgo(10), description: "COASTAL CLEAN CO - INVOICE PAYMENT", amount: -145.85, matchedLedgerEntryId: null },
+      { connectionId: bankConnection.id, basiqTransactionId: "demo-tx-jf-payout", date: daysAgo(7), description: "EFT PAYOUT - J FLETCHER", amount: -13340.65, matchedLedgerEntryId: findEntry(james.id, "OWNER_PAYOUT") },
+      { connectionId: bankConnection.id, basiqTransactionId: "demo-tx-pa-payout", date: daysAgo(7), description: "EFT PAYOUT - P ANAND", amount: -3924, matchedLedgerEntryId: findEntry(priya.id, "OWNER_PAYOUT") },
     ],
   });
 
