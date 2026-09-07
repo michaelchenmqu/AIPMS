@@ -119,6 +119,15 @@ the demo site keeps working with zero configuration:
   `src/app/api/whatsapp/webhook/route.ts`, AI-classified the same as every
   other inbox source; staff reply inline from the Inbox card. Same Meta app
   as the Page/Instagram integration above, different product.
+- **Proactive reminders** (`src/lib/reminders.ts`, same WhatsApp credentials
+  as above) — a day-before-arrival WhatsApp to the guest (check-in time,
+  address, weather, bin day, how to reach the Guest App) and a same-day
+  nudge to the housekeeper assigned to a turnover clean at a
+  gas-bottle-flagged property. AIPMS has no background job runner, so
+  `POST /api/cron/reminders` (protected by `CRON_SECRET`) is meant to be
+  triggered by a real scheduler — a Railway Cron Job, or any external
+  cron — once a day; `/portal/reminders` has the same two actions as
+  on-demand buttons, for testing or for days nobody's set up a scheduler.
 
 A campaign posted with real credentials configured stores the resulting
 `facebookPostId`/`instagramPostId` on the `Campaign` row; if any selected
@@ -152,6 +161,12 @@ in code comments at the point it matters:
   on scope and process — this codebase deliberately does not implement it,
   and flags it prominently on the Trust accounting page instead of
   pretending it's handled.
+- **No user-management UI** — staff, owner, contractor, and housekeeper
+  accounts are created via `prisma/seed.ts`/direct DB access, not an in-app
+  form. This is why a housekeeper's WhatsApp number (`User.phone`, used by
+  the gas-bottle-check reminder) is set the same way today — a guest's
+  number, by contrast, has a staff-facing quick-add on `/portal/reminders`
+  since that's expected to change per booking.
 
 ## Architecture notes
 

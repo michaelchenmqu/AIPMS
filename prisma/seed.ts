@@ -62,6 +62,10 @@ async function main() {
         name: "Maria Lopez",
         role: "HOUSEKEEPER",
         contractorId: coastalClean.id,
+        // ACMA-reserved fictional mobile (04 91 57 0xxx block) — lets the
+        // gas-bottle-check reminder (lib/reminders.ts) have a real target
+        // in the demo without using anyone's actual number.
+        phone: "+61491570157",
       },
     }),
     prisma.user.create({
@@ -71,6 +75,7 @@ async function main() {
         name: "Tom Reid",
         role: "HOUSEKEEPER",
         contractorId: coastalClean.id,
+        phone: "+61491570158",
       },
     }),
     prisma.user.create({
@@ -110,6 +115,8 @@ async function main() {
         checkoutTime: "10:00 AM",
         houseManual:
           "Bins are around the side of the garage — general waste and recycling both collected Tuesdays. The BBQ gas bottle is under the deck; spare key for the shed is in the lockbox. Beach access is a 5-minute walk down Ferry Rd.",
+        binDay: "General & recycling: Tuesday",
+        hasGasBottle: true,
         latitude: -35.0206,
         longitude: 150.6906,
       },

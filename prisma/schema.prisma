@@ -123,6 +123,11 @@ model User {
   role         Role
   createdAt    DateTime @default(now())
 
+  // WhatsApp number (E.164), for housekeepers only today — lets staff send
+  // a same-day gas-bottle-check reminder. Nullable: most seed/demo users
+  // don't have one, and reminders simply skip anyone without a phone.
+  phone String?
+
   ownerId      String?
   owner        Owner?      @relation(fields: [ownerId], references: [id])
   contractorId String?
@@ -178,8 +183,14 @@ model Property {
   // concierge assistant.
   wifiNetwork  String?
   wifiPassword String?
+  checkInTime  String  @default("3:00 PM")
   checkoutTime String  @default("10:00 AM")
   houseManual  String? // free-form: parking, bins, appliances, nearby food
+  binDay       String? // free-form, e.g. "General: Tuesday · Recycling: Wednesday (fortnightly)"
+
+  // Whether this property has a gas bottle (BBQ, hot water, etc.) that needs
+  // checking/refilling — drives the housekeeper gas-bottle-check reminder.
+  hasGasBottle Boolean @default(false)
 
   // Used for the Guest App's weather forecast. Nullable — the forecast is
   // simply omitted for properties without coordinates.
@@ -206,12 +217,22 @@ model Reservation {
   propertyId  String
   property    Property          @relation(fields: [propertyId], references: [id])
   guestName   String
+  // WhatsApp number (E.164) to send the pre-arrival reminder to. Populated
+  // from Channex's booking "customer" object when the OTA provides one, or
+  // entered manually by staff for direct bookings — see
+  // src/app/portal/reservations/actions.ts#setGuestPhone.
+  guestPhone  String?
   channel     Channel
   checkIn     DateTime
   checkOut    DateTime
   totalAmount Float
   status      ReservationStatus @default(UPCOMING)
   createdAt   DateTime          @default(now())
+
+  // Set once the day-before-arrival WhatsApp reminder sends successfully —
+  // makes both the cron route and the manual "Send" button idempotent, so
+  // running either twice in a day never double-messages a guest.
+  checkinReminderSentAt DateTime?
 
   // The OTA/Channex booking reference. Null for seed/manually-entered
   // reservations. Unique so a re-delivered webhook upserts instead of
@@ -253,6 +274,11 @@ model Job {
   totalCost     Float?
 
   createdAt DateTime @default(now())
+
+  // Set once the same-day gas-bottle-check WhatsApp reminder sends to the
+  // assigned housekeeper — see lib/reminders.ts#sendGasBottleReminders.
+  // Only ever set for jobs at a hasGasBottle property.
+  gasReminderSentAt DateTime?
 
   roomChecks JobRoomCheck[]
   linenUsage LinenUsage[]

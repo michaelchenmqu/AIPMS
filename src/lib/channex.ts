@@ -105,6 +105,12 @@ export type ChannexBookingPayload = {
   departure_date: string; // ISO date
   amount: number;
   status: "new" | "modified" | "cancelled";
+  // Per Channex's documented Customer schema (phone/mail live under a
+  // nested customer object) — not yet confirmed against a real booking
+  // webhook delivery. Only phone is used today, to prefill the guest
+  // check-in WhatsApp reminder (see lib/reminders.ts); missing on most
+  // OTAs' payloads, in which case staff enter it manually instead.
+  customer?: { phone?: string; mail?: string };
 };
 
 /** Upserts a Reservation from a Channex booking webhook. Idempotent on
@@ -124,7 +130,7 @@ export async function upsertReservationFromWebhook(payload: ChannexBookingPayloa
     return { action: "cancelled" as const };
   }
 
-  const data = {
+  const shared = {
     propertyId: property.id,
     guestName: payload.guest_name,
     channel: mapOtaToChannel(payload.ota_name),
@@ -134,10 +140,13 @@ export async function upsertReservationFromWebhook(payload: ChannexBookingPayloa
     externalId: payload.id,
   };
 
+  // Only set guestPhone when Channex actually sent one — a modification
+  // webhook that omits it (many OTAs don't relay guest contact details)
+  // must not blank out a number staff already entered manually.
   await prisma.reservation.upsert({
     where: { externalId: payload.id },
-    create: data,
-    update: data,
+    create: { ...shared, guestPhone: payload.customer?.phone },
+    update: payload.customer?.phone ? { ...shared, guestPhone: payload.customer.phone } : shared,
   });
   return { action: "upserted" as const };
 }

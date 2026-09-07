@@ -20,6 +20,7 @@ const NAV = [
   { href: "/portal/audits", label: "Q&A / audits", icon: "◎" },
   { href: "/portal/invoicing", label: "Invoicing", icon: "$" },
   { href: "/portal/trust", label: "Trust accounting", icon: "⚖" },
+  { href: "/portal/reminders", label: "Reminders", icon: "🔔", badge: "NEW" },
 ];
 
 function NavLinks({
