@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { sendCheckinReminders, sendGasBottleReminders, type ReminderResult } from "@/lib/reminders";
+import { sendCheckinReminders, sendReviewRequests, sendGasBottleReminders, type ReminderResult } from "@/lib/reminders";
 
-function toQuery(kind: "checkin" | "gas", result: ReminderResult): string {
+function toQuery(kind: "checkin" | "review" | "gas", result: ReminderResult): string {
   const params = new URLSearchParams({
     [kind]: JSON.stringify({ sent: result.sent, failed: result.failed.length }),
   });
@@ -17,6 +17,12 @@ export async function runCheckinReminders() {
   await requireRole("STAFF");
   const result = await sendCheckinReminders();
   redirect(toQuery("checkin", result));
+}
+
+export async function runReviewRequests() {
+  await requireRole("STAFF");
+  const result = await sendReviewRequests();
+  redirect(toQuery("review", result));
 }
 
 export async function runGasBottleReminders() {

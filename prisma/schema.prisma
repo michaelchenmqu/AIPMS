@@ -234,6 +234,10 @@ model Reservation {
   // running either twice in a day never double-messages a guest.
   checkinReminderSentAt DateTime?
 
+  // Set once the post-checkout review-request WhatsApp sends — same
+  // idempotency purpose as checkinReminderSentAt above.
+  reviewRequestSentAt DateTime?
+
   // The OTA/Channex booking reference. Null for seed/manually-entered
   // reservations. Unique so a re-delivered webhook upserts instead of
   // duplicating a booking.

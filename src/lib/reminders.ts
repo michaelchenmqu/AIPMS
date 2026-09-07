@@ -1,8 +1,9 @@
 // Proactive WhatsApp reminders — the day-before check-in message to guests,
-// and the same-day gas-bottle-check nudge to the housekeeper assigned to a
-// turnover clean. Both are pull-based (something calls sendXReminders()),
-// same shape as lib/basiq.ts#syncTransactions: there's no background job
-// runner in AIPMS, so these are meant to be invoked either
+// the same-day post-checkout review request, and the same-day gas-bottle-
+// check nudge to the housekeeper assigned to a turnover clean. All three are
+// pull-based (something calls sendXReminders()), same shape as
+// lib/basiq.ts#syncTransactions: there's no background job runner in
+// AIPMS, so these are meant to be invoked either
 //   - on a schedule, via POST /api/cron/reminders (point a real scheduler —
 //     e.g. a Railway Cron Job — at it once a day), or
 //   - on demand, via the "Send" buttons on /portal/reminders, useful for
@@ -92,6 +93,46 @@ export async function sendCheckinReminders(): Promise<ReminderResult> {
       const body = await buildCheckinReminderMessage(r.property, r.checkIn);
       await sendWhatsAppMessage({ to: normalizePhone(r.guestPhone!), body });
       await prisma.reservation.update({ where: { id: r.id }, data: { checkinReminderSentAt: new Date() } });
+      result.sent++;
+    } catch (err) {
+      result.failed.push({ id: r.id, error: err instanceof Error ? err.message : "Unknown error" });
+    }
+  }
+
+  return result;
+}
+
+function buildReviewRequestMessage(property: { id: string; name: string }): string {
+  return [
+    `Thanks for staying at ${property.name} — we hope you had a great time!`,
+    `We'd love to hear how it went. You can leave a quick rating here: ${guestAppUrl(property.id)} (enter the last name on the booking + your arrival date, then tap "Leave a quick rating" on your stay page).`,
+  ].join("\n");
+}
+
+/** Finds every reservation that checked out today with a guest phone on
+ *  file and no review request sent yet, and WhatsApps each one. Not
+ *  gated on reservation status (which isn't reliably flipped to
+ *  CHECKED_OUT by anything in this codebase yet) — checkOut falling in
+ *  today's window is the source of truth. */
+export async function sendReviewRequests(): Promise<ReminderResult> {
+  const result: ReminderResult = { sent: 0, skipped: 0, failed: [] };
+  if (!isWhatsAppConfigured()) return result;
+
+  const { start, end } = dayWindow(0);
+  const reservations = await prisma.reservation.findMany({
+    where: {
+      checkOut: { gte: start, lt: end },
+      guestPhone: { not: null },
+      reviewRequestSentAt: null,
+    },
+    include: { property: true },
+  });
+
+  for (const r of reservations) {
+    try {
+      const body = buildReviewRequestMessage(r.property);
+      await sendWhatsAppMessage({ to: normalizePhone(r.guestPhone!), body });
+      await prisma.reservation.update({ where: { id: r.id }, data: { reviewRequestSentAt: new Date() } });
       result.sent++;
     } catch (err) {
       result.failed.push({ id: r.id, error: err instanceof Error ? err.message : "Unknown error" });

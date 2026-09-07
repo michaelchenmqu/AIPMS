@@ -120,13 +120,14 @@ the demo site keeps working with zero configuration:
   other inbox source; staff reply inline from the Inbox card. Same Meta app
   as the Page/Instagram integration above, different product.
 - **Proactive reminders** (`src/lib/reminders.ts`, same WhatsApp credentials
-  as above) — a day-before-arrival WhatsApp to the guest (check-in time,
-  address, weather, bin day, how to reach the Guest App) and a same-day
-  nudge to the housekeeper assigned to a turnover clean at a
+  as above) — three WhatsApp sends: a day-before-arrival message to the
+  guest (check-in time, address, weather, bin day, how to reach the Guest
+  App), a same-day post-checkout thank-you with a link to leave a rating,
+  and a same-day nudge to the housekeeper assigned to a turnover clean at a
   gas-bottle-flagged property. AIPMS has no background job runner, so
   `POST /api/cron/reminders` (protected by `CRON_SECRET`) is meant to be
   triggered by a real scheduler — a Railway Cron Job, or any external
-  cron — once a day; `/portal/reminders` has the same two actions as
+  cron — once a day; `/portal/reminders` has the same three actions as
   on-demand buttons, for testing or for days nobody's set up a scheduler.
 
 A campaign posted with real credentials configured stores the resulting
