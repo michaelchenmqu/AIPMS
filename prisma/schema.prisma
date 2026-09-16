@@ -115,6 +115,35 @@ enum CampaignStatus {
   NEEDS_REVIEW
 }
 
+enum PropertyLettingMode {
+  SHORT_TERM
+  LONG_TERM
+}
+
+enum LeaseTermType {
+  FIXED_TERM
+  PERIODIC
+}
+
+enum RentFrequency {
+  WEEKLY
+  FORTNIGHTLY
+  MONTHLY
+}
+
+enum BondStatus {
+  PENDING
+  LODGED
+  CLAIMED
+  REFUNDED
+}
+
+enum LeaseStatus {
+  ACTIVE
+  ENDING
+  ENDED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -133,16 +162,17 @@ model User {
   contractorId String?
   contractor   Contractor? @relation(fields: [contractorId], references: [id])
 
-  assignedJobs Job[]         @relation("AssignedHousekeeper")
+  assignedJobs Job[]                @relation("AssignedHousekeeper")
   chatMessages ChatMessage[]
+  modeChanges  PropertyModeChange[]
 }
 
 model Owner {
-  id         String     @id @default(cuid())
+  id         String             @id @default(cuid())
   name       String
-  email      String     @unique
+  email      String             @unique
   region     String?
-  createdAt  DateTime   @default(now())
+  createdAt  DateTime           @default(now())
   users      User[]
   properties Property[]
   statements Statement[]
@@ -160,24 +190,24 @@ model Contractor {
 }
 
 model Property {
-  id              String   @id @default(cuid())
+  id              String @id @default(cuid())
   name            String
   address         String
   region          String
   ownerId         String
-  owner           Owner    @relation(fields: [ownerId], references: [id])
-  bedrooms        Int      @default(2)
-  bathrooms       Int      @default(1)
-  basePrice       Float    @default(220)
-  heroImage       String   @default("/images/property-placeholder.svg")
-  images          String   @default("[]") // JSON string array
-  referencePhotos String   @default("{}") // JSON: { LIVING_ROOM: url, ... }
-  airbnbScore     Int      @default(90)
-  bookingScore    Int      @default(88)
-  stayzScore      Int      @default(91)
-  linenParQueen   Int      @default(2)
-  linenParSingle  Int      @default(2)
-  linenParBath    Int      @default(3)
+  owner           Owner  @relation(fields: [ownerId], references: [id])
+  bedrooms        Int    @default(2)
+  bathrooms       Int    @default(1)
+  basePrice       Float  @default(220)
+  heroImage       String @default("/images/property-placeholder.svg")
+  images          String @default("[]") // JSON string array
+  referencePhotos String @default("{}") // JSON: { LIVING_ROOM: url, ... }
+  airbnbScore     Int    @default(90)
+  bookingScore    Int    @default(88)
+  stayzScore      Int    @default(91)
+  linenParQueen   Int    @default(2)
+  linenParSingle  Int    @default(2)
+  linenParBath    Int    @default(3)
 
   // Guest-facing info, shown in the Guest App and drawn on by the AI
   // concierge assistant.
@@ -202,6 +232,14 @@ model Property {
   // manually-managed / seed data only.
   channexPropertyId String?
 
+  // Whether this property is currently short-term let (nightly bookings,
+  // OTA-synced) or long-term leased. Switching is a guarded staff action —
+  // see lib/leasing.ts — not a free field edit: it's blocked while there's
+  // open business on the other side (an upcoming/in-stay Reservation, or an
+  // active/ending Lease). Old history under either mode is never deleted or
+  // hidden when the property switches — see PropertyModeChange.
+  lettingMode PropertyLettingMode @default(SHORT_TERM)
+
   createdAt DateTime @default(now())
 
   reservations  Reservation[]
@@ -210,6 +248,8 @@ model Property {
   inboxMessages InboxMessage[]
   statements    Statement[]
   campaigns     Campaign[]
+  modeChanges   PropertyModeChange[]
+  leases        Lease[]
 }
 
 model Reservation {
@@ -271,7 +311,7 @@ model Job {
   departureAt       DateTime?
   departurePhotoUrl String?
 
-  hourlyRate    Float @default(28)
+  hourlyRate    Float  @default(28)
   computedHours Float?
   laborCost     Float?
   linenCost     Float?
@@ -289,19 +329,19 @@ model Job {
 }
 
 model JobRoomCheck {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   jobId         String
-  job           Job       @relation(fields: [jobId], references: [id])
+  job           Job           @relation(fields: [jobId], references: [id])
   room          RoomKind
   afterPhotoUrl String?
   matchPercent  Int?
-  flagged       Boolean   @default(false)
+  flagged       Boolean       @default(false)
   aiNote        String?
   reviewedAt    DateTime?
   reviewedBy    String?
   reviewNote    String?
   reviewStatus  ReviewStatus?
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime      @default(now())
 }
 
 model LinenUsage {
@@ -325,9 +365,9 @@ model WorkOrder {
 }
 
 model InboxMessage {
-  id         String    @id @default(cuid())
+  id         String      @id @default(cuid())
   propertyId String?
-  property   Property? @relation(fields: [propertyId], references: [id])
+  property   Property?   @relation(fields: [propertyId], references: [id])
   fromName   String
   // One of these two identifies the sender, depending on channel — email for
   // Airbnb/Booking.com/Stayz/Direct, phone (E.164, from the WhatsApp Cloud
@@ -335,7 +375,7 @@ model InboxMessage {
   // stays null.
   fromEmail  String?
   fromPhone  String?
-  channel    Channel   @default(DIRECT)
+  channel    Channel     @default(DIRECT)
   subject    String
   body       String
   status     InboxStatus @default(OPEN)
@@ -382,6 +422,14 @@ model TrustLedgerEntry {
   memo    String
   date    DateTime   @default(now())
 
+  // Set for a long-term-leasing entry (rent, commission on rent, etc.) so
+  // the lease's own ledger view can filter to just its lines. Null for
+  // every short-stay entry — those aren't attributed to a single booking
+  // today, only to the owner. The reconciliation engine itself doesn't
+  // care either way: it just sums amounts by owner.
+  leaseId String?
+  lease   Lease?  @relation(fields: [leaseId], references: [id])
+
   // Set once this entry is matched to a real bank line during reconciliation
   // — see BankTransaction. Null means still unreconciled.
   bankTransaction BankTransaction?
@@ -415,14 +463,14 @@ model BankConnection {
 }
 
 model BankTransaction {
-  id                 String   @id @default(cuid())
+  id                 String         @id @default(cuid())
   connectionId       String
   connection         BankConnection @relation(fields: [connectionId], references: [id])
-  basiqTransactionId String   @unique
+  basiqTransactionId String         @unique
   date               DateTime
   description        String
   amount             Float
-  createdAt          DateTime @default(now())
+  createdAt          DateTime       @default(now())
 
   // Staff (or the auto-match heuristic) links this to the ledger entry it
   // represents. Null means still unreconciled — the whole point of this
@@ -542,4 +590,96 @@ model GuestFeedback {
   comment             String?
 
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------
+// Long-term leasing — Phase 1 (see the "Dual-Mode Property Architecture"
+// design). A Property can be either SHORT_TERM or LONG_TERM
+// (lettingMode); everything below only ever applies to a LONG_TERM one.
+// The trust-reconciliation engine (BankConnection/BankTransaction/
+// TrustLedgerEntry above) is entirely unchanged — a lease just posts
+// TrustLedgerEntry rows the same way a short-stay booking does.
+// ---------------------------------------------------------------------
+
+// Audit trail for Property.lettingMode — every switch, who did it, and
+// why. Never overwritten or deleted, so "this property was short-term
+// Jan–Jun, then leased from Jul" stays queryable regardless of which mode
+// it's in today. See lib/leasing.ts for the guarded switch itself.
+model PropertyModeChange {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  fromMode PropertyLettingMode
+  toMode   PropertyLettingMode
+  note     String?
+
+  changedByUserId String
+  changedByUser   User   @relation(fields: [changedByUserId], references: [id])
+
+  changedAt DateTime @default(now())
+}
+
+// A person renting long-term — parallel to Owner/Contractor. No portal
+// login yet (that's Phase 2's Tenant portal); for now this is just a
+// name/contact record a Lease points at.
+model Tenant {
+  id    String  @id @default(cuid())
+  name  String
+  email String? @unique
+  phone String?
+
+  createdAt DateTime @default(now())
+
+  leases LeaseTenant[]
+}
+
+// Join table rather than a single tenantId on Lease — co-tenancy
+// (roommates, couples) is the common case, not the exception, and this
+// costs nothing to model correctly from day one versus retrofitting once
+// real leases exist.
+model LeaseTenant {
+  id       String @id @default(cuid())
+  leaseId  String
+  lease    Lease  @relation(fields: [leaseId], references: [id])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([leaseId, tenantId])
+}
+
+model Lease {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  termType  LeaseTermType @default(FIXED_TERM)
+  startDate DateTime
+  // Null once a fixed term has rolled over into a periodic (month-to-month)
+  // tenancy — there's no scheduled end date to show.
+  endDate   DateTime?
+
+  rentAmount        Float
+  rentFrequency     RentFrequency @default(WEEKLY)
+  // The agency's cut of each rent payment, e.g. 0.08 = 8% — mirrors the
+  // commission rate already used for short-stay bookings, just named for
+  // what it means on this side.
+  managementFeeRate Float         @default(0.08)
+
+  bondAmount    Float?
+  bondStatus    BondStatus @default(PENDING)
+  // The state bond authority's reference number once lodged (e.g. NSW
+  // Rental Bonds Online) — AIPMS tracks the reference, it doesn't lodge
+  // the bond itself; see the Long-Term Leasing Requirements research on
+  // why that's a portal-driven process for every agent, on every PMS.
+  bondReference String?
+  bondLodgedAt  DateTime?
+
+  status  LeaseStatus @default(ACTIVE)
+  endedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  tenants       LeaseTenant[]
+  ledgerEntries TrustLedgerEntry[]
 }
