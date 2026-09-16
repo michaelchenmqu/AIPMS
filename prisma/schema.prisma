@@ -694,6 +694,15 @@ model Lease {
 
   createdAt DateTime @default(now())
 
+  // Idempotency guards for lib/reminders.ts's leasing nudges — same
+  // "*SentAt column" pattern as Reservation.checkinReminderSentAt, but
+  // keyed to the computed due date (not just a timestamp) so a new missed
+  // payment after an old one was reminded-about still triggers a fresh
+  // nudge instead of being silently gated by the old send.
+  rentReminderSentFor    DateTime?
+  arrearsReminderSentFor DateTime?
+  renewalReminderSentAt  DateTime?
+
   tenants          LeaseTenant[]
   ledgerEntries    TrustLedgerEntry[]
   conditionReports ConditionReport[]

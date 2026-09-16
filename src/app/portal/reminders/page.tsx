@@ -2,23 +2,34 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge, Button } from "@/components/ui";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { isWhatsAppConfigured } from "@/lib/whatsapp";
-import { dayWindow } from "@/lib/reminders";
-import { runCheckinReminders, runReviewRequests, runGasBottleReminders, setGuestPhone } from "./actions";
+import { dayWindow, leaseRentStatuses, upcomingRenewals } from "@/lib/reminders";
+import {
+  runCheckinReminders,
+  runReviewRequests,
+  runGasBottleReminders,
+  runRentDueReminders,
+  runArrearsWarnings,
+  runLeaseRenewalReminders,
+  setGuestPhone,
+} from "./actions";
 
 export default async function RemindersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ checkin?: string; review?: string; gas?: string }>;
+  searchParams: Promise<{ checkin?: string; review?: string; gas?: string; rentDue?: string; arrears?: string; renewal?: string }>;
 }) {
-  const { checkin, review, gas } = await searchParams;
+  const { checkin, review, gas, rentDue, arrears, renewal } = await searchParams;
   const checkinResult = checkin ? (JSON.parse(checkin) as { sent: number; failed: number }) : null;
   const reviewResult = review ? (JSON.parse(review) as { sent: number; failed: number }) : null;
   const gasResult = gas ? (JSON.parse(gas) as { sent: number; failed: number }) : null;
+  const rentDueResult = rentDue ? (JSON.parse(rentDue) as { sent: number; failed: number }) : null;
+  const arrearsResult = arrears ? (JSON.parse(arrears) as { sent: number; failed: number }) : null;
+  const renewalResult = renewal ? (JSON.parse(renewal) as { sent: number; failed: number }) : null;
 
   const { start: tomorrowStart, end: tomorrowEnd } = dayWindow(1);
   const { start: todayStart, end: todayEnd } = dayWindow(0);
 
-  const [arrivals, departures, jobs] = await Promise.all([
+  const [arrivals, departures, jobs, rentStatuses, renewals] = await Promise.all([
     prisma.reservation.findMany({
       where: { status: "UPCOMING", checkIn: { gte: tomorrowStart, lt: tomorrowEnd } },
       include: { property: true },
@@ -33,6 +44,8 @@ export default async function RemindersPage({
       where: { type: "CLEANING", status: { in: ["PENDING", "ACCEPTED"] }, property: { hasGasBottle: true } },
       include: { property: true, assignedUser: true, reservation: true },
     }),
+    leaseRentStatuses(),
+    upcomingRenewals(),
   ]);
 
   const gasJobsToday = jobs.filter((j) => {
@@ -40,12 +53,18 @@ export default async function RemindersPage({
     return relevantDate >= todayStart && relevantDate < todayEnd;
   });
 
+  const rentDueLeases = rentStatuses.filter((x) => x.due.daysOverdue <= 6);
+  const arrearsLeases = rentStatuses.filter((x) => x.due.daysOverdue >= 7);
+
   const configured = isWhatsAppConfigured();
   const cronUrl = `${process.env.SITE_URL ?? "https://your-deployment"}/api/cron/reminders`;
 
   return (
     <div>
-      <PageHeader title="Reminders" subtitle="Proactive WhatsApp nudges — check-in details, review requests, and gas-bottle checks for cleaners" />
+      <PageHeader
+        title="Reminders"
+        subtitle="Proactive WhatsApp nudges — check-in details, review requests and gas-bottle checks for short-stay; rent-due, arrears, and renewal nudges for leasing"
+      />
 
       {!configured && (
         <div className="text-sm text-[var(--color-warning)] bg-[var(--color-warning-bg)] rounded-lg px-4 py-3 mb-5">
@@ -68,6 +87,24 @@ export default async function RemindersPage({
         <div className="text-sm bg-[var(--color-success-bg)] text-[var(--color-success)] rounded-lg px-4 py-3 mb-5">
           Sent {gasResult.sent} gas-bottle reminder{gasResult.sent === 1 ? "" : "s"}
           {gasResult.failed > 0 ? ` — ${gasResult.failed} failed` : ""}.
+        </div>
+      )}
+      {rentDueResult && (
+        <div className="text-sm bg-[var(--color-success-bg)] text-[var(--color-success)] rounded-lg px-4 py-3 mb-5">
+          Sent {rentDueResult.sent} rent-due reminder{rentDueResult.sent === 1 ? "" : "s"}
+          {rentDueResult.failed > 0 ? ` — ${rentDueResult.failed} failed` : ""}.
+        </div>
+      )}
+      {arrearsResult && (
+        <div className="text-sm bg-[var(--color-success-bg)] text-[var(--color-success)] rounded-lg px-4 py-3 mb-5">
+          Sent {arrearsResult.sent} arrears warning{arrearsResult.sent === 1 ? "" : "s"}
+          {arrearsResult.failed > 0 ? ` — ${arrearsResult.failed} failed` : ""}.
+        </div>
+      )}
+      {renewalResult && (
+        <div className="text-sm bg-[var(--color-success-bg)] text-[var(--color-success)] rounded-lg px-4 py-3 mb-5">
+          Sent {renewalResult.sent} renewal reminder{renewalResult.sent === 1 ? "" : "s"}
+          {renewalResult.failed > 0 ? ` — ${renewalResult.failed} failed` : ""}.
         </div>
       )}
 
@@ -192,10 +229,112 @@ export default async function RemindersPage({
         </div>
       </Card>
 
+      <Card className="p-6 mb-6">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-sm font-semibold text-[var(--color-navy)]">Rent-due reminders</div>
+          <form action={runRentDueReminders}>
+            <Button type="submit" variant="accent" disabled={!configured}>
+              Send now →
+            </Button>
+          </form>
+        </div>
+        <p className="text-xs text-[var(--color-muted)] mb-4">
+          A friendly nudge 1-6 days after rent was due — before any formal arrears notice clock starts.
+        </p>
+        <div className="flex flex-col gap-2.5">
+          {rentDueLeases.map(({ lease, due }) => (
+            <div key={lease.id} className="flex items-center justify-between gap-3 text-sm border-b border-[var(--color-sand-200)] pb-2.5">
+              <div className="min-w-0">
+                <div className="font-medium text-[var(--color-navy)]">{lease.property.name}</div>
+                <div className="text-xs text-[var(--color-muted)]">
+                  {lease.tenants.map((t) => t.tenant.name).join(", ") || "No tenant on record"} · due {formatDate(due.dueDate)}
+                </div>
+              </div>
+              {lease.rentReminderSentFor?.getTime() === due.dueDate.getTime() ? (
+                <Badge tone="success">Sent</Badge>
+              ) : lease.tenants.some((t) => t.tenant.phone) ? (
+                <Badge tone="info">Queued</Badge>
+              ) : (
+                <Badge tone="warning">No tenant phone on file</Badge>
+              )}
+            </div>
+          ))}
+          {rentDueLeases.length === 0 && <div className="text-sm text-[var(--color-muted)] py-4">No rent newly overdue.</div>}
+        </div>
+      </Card>
+
+      <Card className="p-6 mb-6">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-sm font-semibold text-[var(--color-navy)]">Arrears warnings</div>
+          <form action={runArrearsWarnings}>
+            <Button type="submit" variant="accent" disabled={!configured}>
+              Send now →
+            </Button>
+          </form>
+        </div>
+        <p className="text-xs text-[var(--color-muted)] mb-4">
+          A more formal warning once rent is a week or more overdue — still WhatsApp, not a statutory notice.
+        </p>
+        <div className="flex flex-col gap-2.5">
+          {arrearsLeases.map(({ lease, due }) => (
+            <div key={lease.id} className="flex items-center justify-between gap-3 text-sm border-b border-[var(--color-sand-200)] pb-2.5">
+              <div className="min-w-0">
+                <div className="font-medium text-[var(--color-navy)]">{lease.property.name}</div>
+                <div className="text-xs text-[var(--color-muted)]">
+                  {lease.tenants.map((t) => t.tenant.name).join(", ") || "No tenant on record"} · {due.daysOverdue} days overdue
+                </div>
+              </div>
+              {lease.arrearsReminderSentFor?.getTime() === due.dueDate.getTime() ? (
+                <Badge tone="success">Sent</Badge>
+              ) : lease.tenants.some((t) => t.tenant.phone) ? (
+                <Badge tone="warning">Queued</Badge>
+              ) : (
+                <Badge tone="warning">No tenant phone on file</Badge>
+              )}
+            </div>
+          ))}
+          {arrearsLeases.length === 0 && <div className="text-sm text-[var(--color-muted)] py-4">No leases a week or more overdue.</div>}
+        </div>
+      </Card>
+
+      <Card className="p-6 mb-6">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-sm font-semibold text-[var(--color-navy)]">Lease renewal reminders</div>
+          <form action={runLeaseRenewalReminders}>
+            <Button type="submit" variant="accent" disabled={!configured}>
+              Send now →
+            </Button>
+          </form>
+        </div>
+        <p className="text-xs text-[var(--color-muted)] mb-4">
+          Fixed-term leases ending within 30-60 days, not yet reminded about renewing.
+        </p>
+        <div className="flex flex-col gap-2.5">
+          {renewals.map(({ lease, daysToEnd }) => (
+            <div key={lease.id} className="flex items-center justify-between gap-3 text-sm border-b border-[var(--color-sand-200)] pb-2.5">
+              <div className="min-w-0">
+                <div className="font-medium text-[var(--color-navy)]">{lease.property.name}</div>
+                <div className="text-xs text-[var(--color-muted)]">
+                  {lease.tenants.map((t) => t.tenant.name).join(", ") || "No tenant on record"} · ends in {daysToEnd} day{daysToEnd === 1 ? "" : "s"}
+                </div>
+              </div>
+              {lease.renewalReminderSentAt ? (
+                <Badge tone="success">Sent {formatDateTime(lease.renewalReminderSentAt)}</Badge>
+              ) : lease.tenants.some((t) => t.tenant.phone) ? (
+                <Badge tone="info">Queued</Badge>
+              ) : (
+                <Badge tone="warning">No tenant phone on file</Badge>
+              )}
+            </div>
+          ))}
+          {renewals.length === 0 && <div className="text-sm text-[var(--color-muted)] py-4">No renewals due in the next 60 days.</div>}
+        </div>
+      </Card>
+
       <Card className="p-5">
         <div className="text-sm font-semibold text-[var(--color-navy)] mb-1">Automate this</div>
         <p className="text-xs text-[var(--color-muted)]">
-          All three reminders above run once, on demand. To send them automatically every day, set{" "}
+          All six reminders above run once, on demand. To send them automatically every day, set{" "}
           <code>CRON_SECRET</code> and point a scheduler (a Railway Cron Job, or any external cron) at:
         </p>
         <div className="mt-2 text-xs font-mono bg-[var(--color-sand-100)] rounded-lg px-3 py-2 break-all">

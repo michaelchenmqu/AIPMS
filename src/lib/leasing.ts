@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { conditionCheckRoom } from "@/lib/ai";
+import { sendInspectionNoticeMessage } from "@/lib/reminders";
 import type { ConditionReport, ConditionReportType, Lease, RentFrequency, RoomKind, RoutineInspection } from "@prisma/client";
 
 /** Thrown by the guarded switch actions — caught by the calling Server
@@ -265,14 +266,22 @@ export async function scheduleInspection(leaseId: string, scheduledFor: Date): P
 }
 
 /** Staff action, "Send notice" — records that the statutory notice period
- *  has started. AIPMS doesn't yet enforce each state's specific notice
- *  window (see the Long-Term Leasing Requirements research); this records
- *  the fact for the audit trail without validating a minimum lead time. */
+ *  has started, and WhatsApps the tenant the notice itself via
+ *  lib/reminders.ts#sendInspectionNoticeMessage. AIPMS doesn't yet enforce
+ *  each state's specific notice window (see the Long-Term Leasing
+ *  Requirements research); this records the fact for the audit trail
+ *  without validating a minimum lead time. A missing WhatsApp config or
+ *  tenant phone number is a real, expected gap (sendInspectionNoticeMessage
+ *  just returns false) — it never blocks recording the notice itself. */
 export async function sendInspectionNotice(inspectionId: string): Promise<RoutineInspection> {
-  const inspection = await prisma.routineInspection.findUniqueOrThrow({ where: { id: inspectionId } });
+  const inspection = await prisma.routineInspection.findUniqueOrThrow({
+    where: { id: inspectionId },
+    include: { lease: { include: { property: true, tenants: { include: { tenant: true } } } } },
+  });
   if (inspection.status !== "SCHEDULED") {
     throw new LeasingError("Notice has already been given for this inspection.");
   }
+  await sendInspectionNoticeMessage(inspection);
   return prisma.routineInspection.update({
     where: { id: inspectionId },
     data: { noticeGivenAt: new Date(), status: "NOTICE_SENT" },

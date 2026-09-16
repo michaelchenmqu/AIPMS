@@ -11,7 +11,14 @@
 // other gated route in this app.
 
 import { NextResponse } from "next/server";
-import { sendCheckinReminders, sendReviewRequests, sendGasBottleReminders } from "@/lib/reminders";
+import {
+  sendCheckinReminders,
+  sendReviewRequests,
+  sendGasBottleReminders,
+  sendRentDueReminders,
+  sendArrearsWarnings,
+  sendLeaseRenewalReminders,
+} from "@/lib/reminders";
 
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -21,10 +28,13 @@ export async function POST(req: Request) {
   const provided = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? url.searchParams.get("secret");
   if (provided !== secret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [checkin, reviewRequest, gasBottle] = await Promise.all([
+  const [checkin, reviewRequest, gasBottle, rentDue, arrears, renewal] = await Promise.all([
     sendCheckinReminders(),
     sendReviewRequests(),
     sendGasBottleReminders(),
+    sendRentDueReminders(),
+    sendArrearsWarnings(),
+    sendLeaseRenewalReminders(),
   ]);
-  return NextResponse.json({ checkin, reviewRequest, gasBottle });
+  return NextResponse.json({ checkin, reviewRequest, gasBottle, rentDue, arrears, renewal });
 }
