@@ -8,7 +8,8 @@
 // bookings already use; that engine needed zero changes for this.
 
 import { prisma } from "@/lib/prisma";
-import type { Lease, RentFrequency } from "@prisma/client";
+import { conditionCheckRoom } from "@/lib/ai";
+import type { ConditionReport, ConditionReportType, Lease, RentFrequency, RoomKind, RoutineInspection } from "@prisma/client";
 
 /** Thrown by the guarded switch actions — caught by the calling Server
  *  Action and turned into a friendly `?xError=` banner, same pattern as
@@ -167,4 +168,147 @@ export async function endLease(leaseId: string) {
     where: { id: leaseId },
     data: { status: "ENDED", endedAt: new Date() },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Condition reports — Phase 2. The AI clean-check pipeline, repointed: an
+// ENTRY report just documents each room (it IS the baseline); an EXIT or
+// ROUTINE report compares its photo against that lease's own entry photo
+// for the same room, via conditionCheckRoom in lib/ai.ts.
+// ---------------------------------------------------------------------------
+
+/** Staff action, "+ Entry report" / "+ Exit report" on a lease's condition
+ *  reports card. Only one ENTRY report per lease — it's the baseline every
+ *  later report compares against, so a second one would be ambiguous.
+ *  EXIT (and ROUTINE, created via startInspectionReport below) can recur. */
+export async function createConditionReport(leaseId: string, type: "ENTRY" | "EXIT"): Promise<ConditionReport> {
+  if (type === "ENTRY") {
+    const existing = await prisma.conditionReport.findFirst({ where: { leaseId, type: "ENTRY" } });
+    if (existing) {
+      throw new LeasingError("This lease already has an entry condition report — it's the baseline, not repeatable.");
+    }
+  }
+  return prisma.conditionReport.create({ data: { leaseId, type } });
+}
+
+/** Staff action, the photo upload on a condition report's room card.
+ *  Looks up the lease's ENTRY report's photo for the same room as the
+ *  baseline (none, on the ENTRY report itself, or if no entry photo has
+ *  been captured for that room yet), then runs the AI comparison and
+ *  upserts the room's check — same idempotent-per-room pattern as
+ *  room-check/route.ts uses for JobRoomCheck. */
+export async function recordConditionRoomPhoto(reportId: string, room: RoomKind, photoDataUrl: string) {
+  const report = await prisma.conditionReport.findUniqueOrThrow({ where: { id: reportId } });
+
+  let baselinePhotoDataUrl: string | null = null;
+  if (report.type !== "ENTRY") {
+    const entryReport = await prisma.conditionReport.findFirst({
+      where: { leaseId: report.leaseId, type: "ENTRY" },
+      orderBy: { createdAt: "asc" },
+    });
+    if (entryReport) {
+      const baselineCheck = await prisma.conditionRoomCheck.findFirst({ where: { conditionReportId: entryReport.id, room } });
+      baselinePhotoDataUrl = baselineCheck?.photoUrl ?? null;
+    }
+  }
+
+  const result = await conditionCheckRoom({
+    reportId,
+    room,
+    mode: report.type === "ENTRY" ? "document" : "compare",
+    photoDataUrl,
+    baselinePhotoDataUrl,
+  });
+
+  const existing = await prisma.conditionRoomCheck.findFirst({ where: { conditionReportId: reportId, room } });
+  return existing
+    ? prisma.conditionRoomCheck.update({
+        where: { id: existing.id },
+        data: {
+          photoUrl: photoDataUrl,
+          matchPercent: result.matchPercent,
+          flagged: result.flagged,
+          aiNote: result.note,
+          reviewedAt: null,
+          reviewedBy: null,
+          reviewNote: null,
+          reviewStatus: null,
+        },
+      })
+    : prisma.conditionRoomCheck.create({
+        data: {
+          conditionReportId: reportId,
+          room,
+          photoUrl: photoDataUrl,
+          matchPercent: result.matchPercent,
+          flagged: result.flagged,
+          aiNote: result.note,
+        },
+      });
+}
+
+// ---------------------------------------------------------------------------
+// Routine inspections — Phase 2. A simple statutory-notice-aware lifecycle:
+// SCHEDULED -> NOTICE_SENT -> IN_PROGRESS (once a ConditionReport exists to
+// hold the room photos) -> COMPLETED, or CANCELLED at any point before
+// completion. The AI inspection scheduler/QA batch-proposal design (see the
+// Dual-Mode Property Architecture doc) builds on top of this lifecycle
+// rather than replacing it.
+// ---------------------------------------------------------------------------
+
+export async function scheduleInspection(leaseId: string, scheduledFor: Date): Promise<RoutineInspection> {
+  const lease = await prisma.lease.findUniqueOrThrow({ where: { id: leaseId } });
+  if (lease.status !== "ACTIVE" && lease.status !== "ENDING") {
+    throw new LeasingError("This lease isn't active.");
+  }
+  return prisma.routineInspection.create({ data: { leaseId, scheduledFor } });
+}
+
+/** Staff action, "Send notice" — records that the statutory notice period
+ *  has started. AIPMS doesn't yet enforce each state's specific notice
+ *  window (see the Long-Term Leasing Requirements research); this records
+ *  the fact for the audit trail without validating a minimum lead time. */
+export async function sendInspectionNotice(inspectionId: string): Promise<RoutineInspection> {
+  const inspection = await prisma.routineInspection.findUniqueOrThrow({ where: { id: inspectionId } });
+  if (inspection.status !== "SCHEDULED") {
+    throw new LeasingError("Notice has already been given for this inspection.");
+  }
+  return prisma.routineInspection.update({
+    where: { id: inspectionId },
+    data: { noticeGivenAt: new Date(), status: "NOTICE_SENT" },
+  });
+}
+
+/** Staff action, "Start inspection" — creates the ROUTINE ConditionReport
+ *  that holds this inspection's room photos, and links it. */
+export async function startInspectionReport(inspectionId: string): Promise<RoutineInspection> {
+  const inspection = await prisma.routineInspection.findUniqueOrThrow({ where: { id: inspectionId } });
+  if (inspection.status !== "NOTICE_SENT") {
+    throw new LeasingError("Give notice before starting the inspection.");
+  }
+  const report = await prisma.conditionReport.create({
+    data: { leaseId: inspection.leaseId, type: "ROUTINE" as ConditionReportType },
+  });
+  return prisma.routineInspection.update({
+    where: { id: inspectionId },
+    data: { conditionReportId: report.id, status: "IN_PROGRESS" },
+  });
+}
+
+/** Staff action, "Mark complete" on an in-progress inspection. */
+export async function completeInspection(inspectionId: string): Promise<RoutineInspection> {
+  const inspection = await prisma.routineInspection.findUniqueOrThrow({ where: { id: inspectionId } });
+  if (inspection.status !== "IN_PROGRESS") {
+    throw new LeasingError("Start the inspection report before marking it complete.");
+  }
+  return prisma.routineInspection.update({ where: { id: inspectionId }, data: { status: "COMPLETED" } });
+}
+
+/** Staff action, "Cancel" — available any time before COMPLETED. */
+export async function cancelInspection(inspectionId: string): Promise<RoutineInspection> {
+  const inspection = await prisma.routineInspection.findUniqueOrThrow({ where: { id: inspectionId } });
+  if (inspection.status === "COMPLETED") {
+    throw new LeasingError("Can't cancel a completed inspection.");
+  }
+  return prisma.routineInspection.update({ where: { id: inspectionId }, data: { status: "CANCELLED" } });
 }

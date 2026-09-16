@@ -5,8 +5,22 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { connectProperty } from "@/lib/channex";
-import { switchToLongTerm, switchToShortTerm, createLease, recordRentPayment, endLease, LeasingError } from "@/lib/leasing";
-import type { RentFrequency } from "@prisma/client";
+import {
+  switchToLongTerm,
+  switchToShortTerm,
+  createLease,
+  recordRentPayment,
+  endLease,
+  createConditionReport,
+  recordConditionRoomPhoto,
+  scheduleInspection,
+  sendInspectionNotice,
+  startInspectionReport,
+  completeInspection,
+  cancelInspection,
+  LeasingError,
+} from "@/lib/leasing";
+import type { ConditionReportType, ReviewStatus, RentFrequency, RoomKind } from "@prisma/client";
 
 /** Staff action, "Connect to Channex" button on the property detail page.
  *  Registers the property with Channex and stores the returned ID — see
@@ -114,6 +128,142 @@ export async function recordRentPaymentAction(propertyId: string, leaseId: strin
 export async function endLeaseAction(propertyId: string, leaseId: string) {
   await requireRole("STAFF");
   await endLease(leaseId);
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(`/portal/properties/${propertyId}`);
+}
+
+/** Staff action, "+ Entry report" / "+ Exit report" on the property detail
+ *  page's condition reports card — see lib/leasing.ts#createConditionReport.
+ *  Redirects straight into the new report so staff can start uploading
+ *  room photos immediately. */
+export async function createConditionReportAction(propertyId: string, leaseId: string, type: ConditionReportType) {
+  await requireRole("STAFF");
+  let reportId: string;
+  try {
+    const report = await createConditionReport(leaseId, type as "ENTRY" | "EXIT");
+    reportId = report.id;
+  } catch (err) {
+    const message = err instanceof LeasingError ? err.message : "Couldn't create that condition report.";
+    redirect(`/portal/properties/${propertyId}?leaseError=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(`/portal/properties/${propertyId}/condition-reports/${reportId}`);
+}
+
+/** Staff action, the photo upload form on each room card of a condition
+ *  report — reads the uploaded file straight out of the FormData (Server
+ *  Actions support File values natively) and hands its data URL to
+ *  lib/leasing.ts#recordConditionRoomPhoto, same pattern the housekeeper
+ *  room-check API route uses for JobRoomCheck. */
+export async function recordConditionRoomPhotoAction(propertyId: string, reportId: string, room: RoomKind, formData: FormData) {
+  await requireRole("STAFF");
+  const file = formData.get("photo");
+  if (file instanceof File && file.size > 0) {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const dataUrl = `data:${file.type || "image/jpeg"};base64,${buffer.toString("base64")}`;
+    await recordConditionRoomPhoto(reportId, room, dataUrl);
+    revalidatePath(`/portal/properties/${propertyId}/condition-reports/${reportId}`);
+  }
+  redirect(`/portal/properties/${propertyId}/condition-reports/${reportId}`);
+}
+
+/** Staff action, the review buttons on a flagged condition-report room
+ *  card — mirrors housekeeping/[id]/actions.ts#reviewRoomCheck for
+ *  ConditionRoomCheck instead of JobRoomCheck. */
+const CONDITION_REVIEW_DEFAULT_NOTE: Record<ReviewStatus, string> = {
+  APPROVED: "Approved — looks good",
+  REJECTED: "Rejected — redo required",
+  RETURNED: "Returned for follow-up",
+};
+
+export async function reviewConditionRoomCheck(roomCheckId: string, status: ReviewStatus, note?: string) {
+  const user = await requireRole("STAFF");
+  const roomCheck = await prisma.conditionRoomCheck.update({
+    where: { id: roomCheckId },
+    data: {
+      reviewedAt: new Date(),
+      reviewedBy: user.name,
+      reviewStatus: status,
+      reviewNote: note?.trim() || CONDITION_REVIEW_DEFAULT_NOTE[status],
+    },
+    include: { conditionReport: { include: { lease: true } } },
+  });
+  revalidatePath(`/portal/properties/${roomCheck.conditionReport.lease.propertyId}/condition-reports/${roomCheck.conditionReportId}`);
+}
+
+export async function returnConditionRoomCheckWithComment(formData: FormData) {
+  const roomCheckId = String(formData.get("roomCheckId") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+  if (!roomCheckId || !note) return;
+  await reviewConditionRoomCheck(roomCheckId, "RETURNED", note);
+}
+
+/** Staff action, "Schedule inspection" on the property detail page's
+ *  routine inspections card. */
+export async function scheduleInspectionAction(propertyId: string, leaseId: string, formData: FormData) {
+  await requireRole("STAFF");
+  const scheduledFor = String(formData.get("scheduledFor") ?? "");
+  try {
+    await scheduleInspection(leaseId, new Date(scheduledFor));
+  } catch (err) {
+    const message = err instanceof LeasingError ? err.message : "Couldn't schedule that inspection.";
+    redirect(`/portal/properties/${propertyId}?leaseError=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(`/portal/properties/${propertyId}`);
+}
+
+/** Staff action, "Send notice" on a scheduled inspection. */
+export async function sendInspectionNoticeAction(propertyId: string, inspectionId: string) {
+  await requireRole("STAFF");
+  try {
+    await sendInspectionNotice(inspectionId);
+  } catch (err) {
+    const message = err instanceof LeasingError ? err.message : "Couldn't send that notice.";
+    redirect(`/portal/properties/${propertyId}?leaseError=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(`/portal/properties/${propertyId}`);
+}
+
+/** Staff action, "Start inspection" — creates the ROUTINE condition report
+ *  and sends staff straight to it to capture room photos. */
+export async function startInspectionReportAction(propertyId: string, inspectionId: string) {
+  await requireRole("STAFF");
+  let reportId: string | null;
+  try {
+    const inspection = await startInspectionReport(inspectionId);
+    reportId = inspection.conditionReportId;
+  } catch (err) {
+    const message = err instanceof LeasingError ? err.message : "Couldn't start that inspection.";
+    redirect(`/portal/properties/${propertyId}?leaseError=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(reportId ? `/portal/properties/${propertyId}/condition-reports/${reportId}` : `/portal/properties/${propertyId}`);
+}
+
+/** Staff action, "Mark complete" on an in-progress inspection. */
+export async function completeInspectionAction(propertyId: string, inspectionId: string) {
+  await requireRole("STAFF");
+  try {
+    await completeInspection(inspectionId);
+  } catch (err) {
+    const message = err instanceof LeasingError ? err.message : "Couldn't mark that inspection complete.";
+    redirect(`/portal/properties/${propertyId}?leaseError=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(`/portal/properties/${propertyId}`);
+}
+
+/** Staff action, "Cancel" on a scheduled/notice-sent inspection. */
+export async function cancelInspectionAction(propertyId: string, inspectionId: string) {
+  await requireRole("STAFF");
+  try {
+    await cancelInspection(inspectionId);
+  } catch (err) {
+    const message = err instanceof LeasingError ? err.message : "Couldn't cancel that inspection.";
+    redirect(`/portal/properties/${propertyId}?leaseError=${encodeURIComponent(message)}`);
+  }
   revalidatePath(`/portal/properties/${propertyId}`);
   redirect(`/portal/properties/${propertyId}`);
 }

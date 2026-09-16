@@ -144,6 +144,20 @@ enum LeaseStatus {
   ENDED
 }
 
+enum ConditionReportType {
+  ENTRY
+  EXIT
+  ROUTINE
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  NOTICE_SENT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -680,6 +694,64 @@ model Lease {
 
   createdAt DateTime @default(now())
 
-  tenants       LeaseTenant[]
-  ledgerEntries TrustLedgerEntry[]
+  tenants          LeaseTenant[]
+  ledgerEntries    TrustLedgerEntry[]
+  conditionReports ConditionReport[]
+  inspections      RoutineInspection[]
+}
+
+// Entry, exit, or routine — one report per event, holding one
+// ConditionRoomCheck per room. The entry report is the baseline every
+// later report (exit, or a routine inspection's report) gets compared
+// against — see lib/leasing.ts#recordConditionRoomPhoto. Built on the
+// same AI clean-check photo pipeline as JobRoomCheck, repointed to compare
+// against a lease's own entry photos instead of a portfolio reference.
+model ConditionReport {
+  id        String              @id @default(cuid())
+  leaseId   String
+  lease     Lease               @relation(fields: [leaseId], references: [id])
+  type      ConditionReportType
+  createdAt DateTime            @default(now())
+
+  roomChecks ConditionRoomCheck[]
+  inspection RoutineInspection?
+}
+
+model ConditionRoomCheck {
+  id                String          @id @default(cuid())
+  conditionReportId String
+  conditionReport   ConditionReport @relation(fields: [conditionReportId], references: [id])
+  room              RoomKind
+  photoUrl          String?
+  // Null on an ENTRY report — there's no baseline yet to compare against,
+  // it IS the baseline. Populated on EXIT/ROUTINE reports once an entry
+  // photo exists for the same room.
+  matchPercent      Int?
+  flagged           Boolean         @default(false)
+  aiNote            String?
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  reviewNote        String?
+  reviewStatus      ReviewStatus?
+  createdAt         DateTime        @default(now())
+}
+
+// A scheduled routine inspection for a lease. noticeGivenAt/status track
+// the statutory notice-before-entry requirement every state imposes
+// (typically 7 days) — see the Long-Term Leasing Requirements research for
+// the state-by-state cadence caps this will eventually enforce.
+model RoutineInspection {
+  id            String           @id @default(cuid())
+  leaseId       String
+  lease         Lease            @relation(fields: [leaseId], references: [id])
+  scheduledFor  DateTime
+  noticeGivenAt DateTime?
+  status        InspectionStatus @default(SCHEDULED)
+
+  // Set once staff start walking through the property — creates a
+  // ConditionReport(type ROUTINE) to hold the room photos.
+  conditionReportId String?          @unique
+  conditionReport   ConditionReport? @relation(fields: [conditionReportId], references: [id])
+
+  createdAt DateTime @default(now())
 }

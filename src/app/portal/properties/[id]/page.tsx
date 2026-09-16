@@ -13,7 +13,27 @@ import {
   createLeaseAction,
   recordRentPaymentAction,
   endLeaseAction,
+  createConditionReportAction,
+  scheduleInspectionAction,
+  sendInspectionNoticeAction,
+  startInspectionReportAction,
+  completeInspectionAction,
+  cancelInspectionAction,
 } from "../actions";
+
+const CONDITION_TYPE_LABEL: Record<string, string> = {
+  ENTRY: "Entry report",
+  EXIT: "Exit report",
+  ROUTINE: "Routine inspection report",
+};
+
+const INSPECTION_TONE: Record<string, "neutral" | "info" | "success" | "warning" | "error"> = {
+  SCHEDULED: "neutral",
+  NOTICE_SENT: "info",
+  IN_PROGRESS: "warning",
+  COMPLETED: "success",
+  CANCELLED: "error",
+};
 
 export default async function PropertyDetailPage({
   params,
@@ -33,7 +53,12 @@ export default async function PropertyDetailPage({
       modeChanges: { orderBy: { changedAt: "desc" } },
       leases: {
         orderBy: { createdAt: "desc" },
-        include: { tenants: { include: { tenant: true } }, ledgerEntries: { orderBy: { date: "desc" } } },
+        include: {
+          tenants: { include: { tenant: true } },
+          ledgerEntries: { orderBy: { date: "desc" } },
+          conditionReports: { orderBy: { createdAt: "desc" }, include: { roomChecks: true } },
+          inspections: { orderBy: { scheduledFor: "desc" } },
+        },
       },
     },
   });
@@ -47,6 +72,11 @@ export default async function PropertyDetailPage({
 
   const activeLease = property.leases.find((l) => l.status === "ACTIVE" || l.status === "ENDING");
   const leaseBalance = activeLease?.ledgerEntries.reduce((s, e) => s + e.amount, 0) ?? 0;
+  // Condition reports and inspections stay visible for the most recent
+  // lease even after it's ended and the property has switched back to
+  // short-term — same "history never disappears" principle as the mode
+  // switch's own audit trail.
+  const leaseForReports = activeLease ?? property.leases[0];
 
   const hdrs = await headers();
   const host = hdrs.get("host") ?? "localhost:3000";
@@ -222,6 +252,117 @@ export default async function PropertyDetailPage({
               </div>
             </>
           )}
+        </Card>
+      )}
+
+      {leaseForReports && (
+        <Card className="p-6 mb-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+            <div className="text-sm font-semibold text-[var(--color-navy)]">Condition reports</div>
+            <div className="flex items-center gap-3">
+              <form action={createConditionReportAction.bind(null, property.id, leaseForReports.id, "ENTRY")}>
+                <button className="tap text-xs font-semibold text-[var(--color-teal-dark)] hover:underline">+ Entry report</button>
+              </form>
+              <form action={createConditionReportAction.bind(null, property.id, leaseForReports.id, "EXIT")}>
+                <button className="tap text-xs font-semibold text-[var(--color-teal-dark)] hover:underline">+ Exit report</button>
+              </form>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2.5">
+            {leaseForReports.conditionReports
+              .filter((r) => r.type !== "ROUTINE")
+              .map((r) => {
+                const flaggedCount = r.roomChecks.filter((rc) => rc.flagged).length;
+                return (
+                  <Link
+                    key={r.id}
+                    href={`/portal/properties/${property.id}/condition-reports/${r.id}`}
+                    className="tap flex items-center justify-between text-sm"
+                  >
+                    <div>
+                      <span className="font-medium text-[var(--color-navy)]">{CONDITION_TYPE_LABEL[r.type]}</span>
+                      <span className="text-xs text-[var(--color-muted)] ml-2">
+                        {formatDate(r.createdAt)} · {r.roomChecks.length}/4 rooms
+                      </span>
+                    </div>
+                    {flaggedCount > 0 ? (
+                      <Badge tone="warning">{flaggedCount} flagged</Badge>
+                    ) : r.roomChecks.length > 0 ? (
+                      <Badge tone="success">Clear</Badge>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            {leaseForReports.conditionReports.filter((r) => r.type !== "ROUTINE").length === 0 && (
+              <div className="text-sm text-[var(--color-muted)]">No entry or exit reports yet.</div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {leaseForReports && (
+        <Card className="p-6 mb-6">
+          <div className="text-sm font-semibold text-[var(--color-navy)] mb-4">Routine inspections</div>
+          {(leaseForReports.status === "ACTIVE" || leaseForReports.status === "ENDING") && (
+            <form
+              action={scheduleInspectionAction.bind(null, property.id, leaseForReports.id)}
+              className="flex items-end gap-2 mb-5 flex-wrap"
+            >
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-muted)] mb-1">Scheduled for</label>
+                <input name="scheduledFor" type="date" required className="text-sm border border-[var(--color-sand-400)] rounded-lg px-3 py-2" />
+              </div>
+              <button className="tap text-sm font-semibold bg-[var(--color-navy)] text-white rounded-lg px-4 py-2">
+                Schedule inspection
+              </button>
+            </form>
+          )}
+          <div className="flex flex-col gap-3">
+            {leaseForReports.inspections.map((insp) => (
+              <div key={insp.id} className="flex items-center justify-between text-sm flex-wrap gap-2">
+                <div>
+                  <div className="font-medium text-[var(--color-navy)]">{formatDate(insp.scheduledFor)}</div>
+                  <div className="text-xs text-[var(--color-muted)]">
+                    {insp.noticeGivenAt ? `Notice given ${formatDate(insp.noticeGivenAt)}` : "Notice not yet given"}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Badge tone={INSPECTION_TONE[insp.status]}>{insp.status.replace("_", " ")}</Badge>
+                  {insp.status === "SCHEDULED" && (
+                    <form action={sendInspectionNoticeAction.bind(null, property.id, insp.id)}>
+                      <button className="tap text-xs font-semibold text-[var(--color-teal-dark)] hover:underline">Send notice</button>
+                    </form>
+                  )}
+                  {insp.status === "NOTICE_SENT" && (
+                    <form action={startInspectionReportAction.bind(null, property.id, insp.id)}>
+                      <button className="tap text-xs font-semibold text-[var(--color-teal-dark)] hover:underline">Start inspection →</button>
+                    </form>
+                  )}
+                  {insp.status === "IN_PROGRESS" && insp.conditionReportId && (
+                    <>
+                      <Link
+                        href={`/portal/properties/${property.id}/condition-reports/${insp.conditionReportId}`}
+                        className="tap text-xs font-semibold text-[var(--color-teal-dark)] hover:underline"
+                      >
+                        Continue report →
+                      </Link>
+                      <form action={completeInspectionAction.bind(null, property.id, insp.id)}>
+                        <button className="tap text-xs font-semibold text-[var(--color-teal-dark)] hover:underline">Mark complete</button>
+                      </form>
+                    </>
+                  )}
+                  {(insp.status === "SCHEDULED" || insp.status === "NOTICE_SENT") && (
+                    <form action={cancelInspectionAction.bind(null, property.id, insp.id)}>
+                      <button className="tap text-xs text-[var(--color-muted)] hover:text-[var(--color-error)]">Cancel</button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            ))}
+            {leaseForReports.inspections.length === 0 && (
+              <div className="text-sm text-[var(--color-muted)]">No inspections scheduled.</div>
+            )}
+          </div>
         </Card>
       )}
 
