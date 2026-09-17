@@ -1,8 +1,19 @@
 import Link from "next/link";
 import { PageHeader, Card, Badge, KpiTile } from "@/components/ui";
 import { formatDate } from "@/lib/format";
-import { proposeInspectionBatch, portfolioComplianceSummary, type InspectionProposal } from "@/lib/leasing";
+import {
+  proposeInspectionBatch,
+  portfolioComplianceSummary,
+  leaseTimelineData,
+  modeConversionTrend,
+  rentRevenueTrend,
+  inspectionForecast,
+  type InspectionProposal,
+} from "@/lib/leasing";
 import { approveInspectionBatchAction } from "./actions";
+import { LeaseTimelineChart } from "@/components/charts/LeaseTimelineChart";
+import { LineAreaChart } from "@/components/charts/TrendChart";
+import { DualBarChart, HorizontalBarChart } from "@/components/charts/BarChart";
 
 export default async function LeasingPage({
   searchParams,
@@ -10,7 +21,14 @@ export default async function LeasingPage({
   searchParams: Promise<{ scheduled?: string; skipped?: string }>;
 }) {
   const { scheduled, skipped } = await searchParams;
-  const [proposals, compliance] = await Promise.all([proposeInspectionBatch(), portfolioComplianceSummary()]);
+  const [proposals, compliance, timeline, conversionTrend, revenueTrend, forecast] = await Promise.all([
+    proposeInspectionBatch(),
+    portfolioComplianceSummary(),
+    leaseTimelineData(),
+    modeConversionTrend(12),
+    rentRevenueTrend(6),
+    inspectionForecast(6),
+  ]);
 
   const grouped = proposals.reduce<Record<string, InspectionProposal[]>>((acc, p) => {
     (acc[p.region] ??= []).push(p);
@@ -41,6 +59,48 @@ export default async function LeasingPage({
         <KpiTile label="Clear" value={String(compliance.clear.length)} tone="success" />
         <KpiTile label="Flagged" value={String(compliance.flagged.length)} tone={compliance.flagged.length > 0 ? "warning" : undefined} />
       </div>
+
+      <Card className="p-6 mb-6">
+        <div className="text-sm font-semibold text-[var(--color-navy)] mb-1">Lease calendar</div>
+        <p className="text-xs text-[var(--color-muted)] mb-4">
+          Every long-term lease ever recorded, per property — a re-let after one ends shows as a second bar, so gaps
+          and reversions to short-stay both read at a glance.
+        </p>
+        <LeaseTimelineChart
+          now={new Date().toISOString()}
+          rows={timeline.map((t) => ({
+            ...t,
+            leases: t.leases.map((l) => ({
+              ...l,
+              startDate: l.startDate.toISOString(),
+              endDate: l.endDate ? l.endDate.toISOString() : null,
+            })),
+          }))}
+        />
+      </Card>
+
+      <div className="grid lg:grid-cols-2 gap-6 mb-6">
+        <Card className="p-6">
+          <div className="text-sm font-semibold text-[var(--color-navy)] mb-1">Rent revenue trend</div>
+          <p className="text-xs text-[var(--color-muted)] mb-4">Rent collected across every lease, last 6 months.</p>
+          <LineAreaChart data={revenueTrend} format="money" />
+        </Card>
+
+        <Card className="p-6">
+          <div className="text-sm font-semibold text-[var(--color-navy)] mb-1">Short ↔ long-term conversions</div>
+          <p className="text-xs text-[var(--color-muted)] mb-4">Properties switching mode, last 12 months.</p>
+          <DualBarChart data={conversionTrend.map((c) => ({ label: c.label, a: c.toLong, b: c.toShort }))} aLabel="To long-term" bLabel="Back to short-term" />
+        </Card>
+      </div>
+
+      <Card className="p-6 mb-6">
+        <div className="text-sm font-semibold text-[var(--color-navy)] mb-1">AI scheduler forecast</div>
+        <p className="text-xs text-[var(--color-muted)] mb-4">
+          Projected inspection load for the next 6 months — every active lease&apos;s next due date, whether it&apos;s
+          already been scheduled or is still a standing proposal.
+        </p>
+        <HorizontalBarChart data={forecast} />
+      </Card>
 
       {compliance.flagged.length > 0 && (
         <Card className="p-6 mb-6">

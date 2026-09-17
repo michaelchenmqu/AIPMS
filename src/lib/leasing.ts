@@ -629,3 +629,142 @@ export async function reviewRent(leaseId: string, params: { newRent: number; eff
     prisma.lease.update({ where: { id: leaseId }, data: { rentAmount: params.newRent } }),
   ]);
 }
+
+// ---------------------------------------------------------------------------
+// Reporting — feeds /portal/leasing's charts: a lease-calendar timeline, the
+// short<->long conversion trend, the rent revenue trend, and the AI
+// scheduler's multi-month forecast. Read-only aggregation, no writes.
+// ---------------------------------------------------------------------------
+
+function monthLabel(d: Date): string {
+  return d.toLocaleDateString("en-AU", { month: "short", year: "2-digit" });
+}
+
+function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export type LeaseTimelineProperty = {
+  propertyId: string;
+  propertyName: string;
+  region: string;
+  leases: { id: string; startDate: Date; endDate: Date | null; status: string; tenantName: string }[];
+};
+
+/** Every long-term lease ever recorded (any status), grouped by property —
+ *  the raw data for a Gantt-style "lease calendar" chart. A property with
+ *  more than one lease (ended + re-let) gets more than one bar. */
+export async function leaseTimelineData(): Promise<LeaseTimelineProperty[]> {
+  const properties = await prisma.property.findMany({
+    where: { leases: { some: {} } },
+    include: {
+      leases: {
+        orderBy: { startDate: "asc" },
+        include: { tenants: { include: { tenant: true } } },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return properties.map((p) => ({
+    propertyId: p.id,
+    propertyName: p.name,
+    region: p.region,
+    leases: p.leases.map((l) => ({
+      id: l.id,
+      startDate: l.startDate,
+      endDate: l.endDate ?? (l.status === "ENDED" ? l.endedAt : null),
+      status: l.status,
+      tenantName: l.tenants.map((t) => t.tenant.name).join(", ") || "No tenant on record",
+    })),
+  }));
+}
+
+/** Monthly counts of SHORT_TERM->LONG_TERM and LONG_TERM->SHORT_TERM
+ *  switches over the trailing N months — the "conversion between short
+ *  and long term" trend. */
+export async function modeConversionTrend(months = 12): Promise<{ label: string; toLong: number; toShort: number }[]> {
+  const since = new Date();
+  since.setMonth(since.getMonth() - (months - 1));
+  since.setDate(1);
+  since.setHours(0, 0, 0, 0);
+
+  const changes = await prisma.propertyModeChange.findMany({
+    where: { changedAt: { gte: since } },
+    orderBy: { changedAt: "asc" },
+  });
+
+  const buckets = new Map<string, { label: string; toLong: number; toShort: number }>();
+  const cursor = new Date(since);
+  for (let i = 0; i < months; i++) {
+    buckets.set(monthKey(cursor), { label: monthLabel(cursor), toLong: 0, toShort: 0 });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  for (const c of changes) {
+    const bucket = buckets.get(monthKey(c.changedAt));
+    if (!bucket) continue;
+    if (c.toMode === "LONG_TERM") bucket.toLong++;
+    else bucket.toShort++;
+  }
+
+  return Array.from(buckets.values());
+}
+
+/** Monthly total rent collected across every lease over the trailing N
+ *  months — feeds the leasing revenue trend chart, parallel to the
+ *  short-stay Dashboard's own revenue-by-month chart. */
+export async function rentRevenueTrend(months = 6): Promise<{ label: string; value: number }[]> {
+  const since = new Date();
+  since.setMonth(since.getMonth() - (months - 1));
+  since.setDate(1);
+  since.setHours(0, 0, 0, 0);
+
+  const entries = await prisma.trustLedgerEntry.findMany({
+    where: { type: "RENT_COLLECTED", leaseId: { not: null }, date: { gte: since } },
+  });
+
+  const buckets = new Map<string, { label: string; value: number }>();
+  const cursor = new Date(since);
+  for (let i = 0; i < months; i++) {
+    buckets.set(monthKey(cursor), { label: monthLabel(cursor), value: 0 });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  for (const e of entries) {
+    const bucket = buckets.get(monthKey(e.date));
+    if (bucket) bucket.value += e.amount;
+  }
+
+  return Array.from(buckets.values());
+}
+
+/** The AI scheduler's own forward-looking view: for each of the next N
+ *  months, how many leases have their next inspection due in that month —
+ *  "due" by the same nextInspectionDueDate math proposeInspectionBatch
+ *  uses, regardless of whether one's already been scheduled for it. A
+ *  lease overdue right now lands in the first (current) bucket. */
+export async function inspectionForecast(months = 6): Promise<{ label: string; value: number }[]> {
+  const leases = await prisma.lease.findMany({
+    where: { status: { in: ["ACTIVE", "ENDING"] } },
+    include: { inspections: true },
+  });
+
+  const now = new Date();
+  const buckets: { label: string; value: number; monthStart: Date; monthEnd: Date }[] = [];
+  const cursor = new Date(now.getFullYear(), now.getMonth(), 1);
+  for (let i = 0; i < months; i++) {
+    const monthStart = new Date(cursor);
+    const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    buckets.push({ label: monthLabel(monthStart), value: 0, monthStart, monthEnd });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  for (const lease of leases) {
+    const due = nextInspectionDueDate(lease);
+    const bucket = due < now ? buckets[0] : buckets.find((b) => due >= b.monthStart && due < b.monthEnd);
+    if (bucket) bucket.value++;
+  }
+
+  return buckets.map(({ label, value }) => ({ label, value }));
+}
