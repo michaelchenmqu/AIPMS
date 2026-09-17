@@ -103,6 +103,7 @@ enum LedgerType {
   OWNER_PAYOUT
   COMMISSION
   EXPENSE
+  WATER_USAGE
 }
 
 enum ChatRole {
@@ -143,6 +144,12 @@ enum LeaseStatus {
   ACTIVE
   ENDING
   ENDED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum ConditionReportType {
@@ -267,6 +274,7 @@ model Property {
   campaigns     Campaign[]
   modeChanges   PropertyModeChange[]
   leases        Lease[]
+  applications  TenantApplication[]
 }
 
 model Reservation {
@@ -725,6 +733,45 @@ model Lease {
   conditionReports ConditionReport[]
   inspections      RoutineInspection[]
   workOrders       WorkOrder[]
+  rentReviews      RentReview[]
+}
+
+// Phase 3 — a prospective tenant's application for a LONG_TERM property,
+// before any Lease exists. Staff review and approve/reject; approving
+// doesn't auto-create a Lease (screening and the actual paperwork are
+// different moments) but pre-fills the "Add a lease" form with the
+// applicant's details — see the property detail page.
+model TenantApplication {
+  id         String            @id @default(cuid())
+  propertyId String
+  property   Property          @relation(fields: [propertyId], references: [id])
+  name       String
+  email      String
+  phone      String?
+  moveInDate DateTime?
+  note       String?
+  status     ApplicationStatus @default(PENDING)
+  reviewedAt DateTime?
+  reviewedBy String?
+  reviewNote String?
+  createdAt  DateTime          @default(now())
+}
+
+// Phase 3 — an audit trail for rent changes over a lease's life. The
+// review itself (deciding a new figure, drafting the compliant notice
+// letter) is a staff/AI judgement call, not enforced here — this just
+// records what changed, when, and updates Lease.rentAmount to match.
+// State-specific notice-period enforcement (see the Long-Term Leasing
+// Requirements research) is a real gap, not yet checked before saving.
+model RentReview {
+  id            String   @id @default(cuid())
+  leaseId       String
+  lease         Lease    @relation(fields: [leaseId], references: [id])
+  previousRent  Float
+  newRent       Float
+  effectiveDate DateTime
+  note          String?
+  createdAt     DateTime @default(now())
 }
 
 // Entry, exit, or routine — one report per event, holding one

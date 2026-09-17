@@ -19,6 +19,10 @@ import {
   completeInspection,
   cancelInspection,
   createTenantLogin,
+  reviewTenantApplication,
+  recordWaterUsageCharge,
+  updateBondTracking,
+  reviewRent,
   LeasingError,
 } from "@/lib/leasing";
 import type { ConditionReportType, ReviewStatus, RentFrequency, RoomKind } from "@prisma/client";
@@ -287,4 +291,71 @@ export async function createTenantLoginAction(propertyId: string, tenantId: stri
   redirect(
     `/portal/properties/${propertyId}?tenantLoginEmail=${encodeURIComponent(email)}&tenantLoginPassword=${encodeURIComponent(tempPassword)}`
   );
+}
+
+/** Staff action, "Approve" / "Reject" on a pending application — see
+ *  lib/leasing.ts#reviewTenantApplication. */
+export async function reviewTenantApplicationAction(propertyId: string, applicationId: string, status: "APPROVED" | "REJECTED") {
+  const user = await requireRole("STAFF");
+  await reviewTenantApplication(applicationId, status, user.name ?? "Staff");
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(`/portal/properties/${propertyId}`);
+}
+
+/** Staff action, "Record water usage charge" on a lease's ledger — see
+ *  lib/leasing.ts#recordWaterUsageCharge. */
+export async function recordWaterUsageChargeAction(propertyId: string, leaseId: string, formData: FormData) {
+  await requireRole("STAFF");
+  const amount = Number(formData.get("amount") ?? "");
+  const dateRaw = String(formData.get("date") ?? "");
+  try {
+    await recordWaterUsageCharge(leaseId, { amount, date: dateRaw ? new Date(dateRaw) : new Date() });
+  } catch (err) {
+    const message = err instanceof LeasingError ? err.message : "Couldn't record that water usage charge.";
+    redirect(`/portal/properties/${propertyId}?leaseError=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(`/portal/properties/${propertyId}`);
+}
+
+/** Staff action, "Update bond" on a lease's card — see
+ *  lib/leasing.ts#updateBondTracking. */
+export async function updateBondTrackingAction(propertyId: string, leaseId: string, formData: FormData) {
+  await requireRole("STAFF");
+  const bondStatus = String(formData.get("bondStatus") ?? "PENDING") as "PENDING" | "LODGED" | "CLAIMED" | "REFUNDED";
+  const bondReference = String(formData.get("bondReference") ?? "").trim();
+  const bondLodgedAtRaw = String(formData.get("bondLodgedAt") ?? "").trim();
+  try {
+    await updateBondTracking(leaseId, {
+      bondStatus,
+      bondReference: bondReference || undefined,
+      bondLodgedAt: bondLodgedAtRaw ? new Date(bondLodgedAtRaw) : undefined,
+    });
+  } catch (err) {
+    const message = err instanceof LeasingError ? err.message : "Couldn't update the bond.";
+    redirect(`/portal/properties/${propertyId}?leaseError=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(`/portal/properties/${propertyId}`);
+}
+
+/** Staff action, "Record rent review" on a lease's card — see
+ *  lib/leasing.ts#reviewRent. */
+export async function reviewRentAction(propertyId: string, leaseId: string, formData: FormData) {
+  await requireRole("STAFF");
+  const newRent = Number(formData.get("newRent") ?? "");
+  const effectiveDateRaw = String(formData.get("effectiveDate") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+  try {
+    await reviewRent(leaseId, {
+      newRent,
+      effectiveDate: effectiveDateRaw ? new Date(effectiveDateRaw) : new Date(),
+      note: note || undefined,
+    });
+  } catch (err) {
+    const message = err instanceof LeasingError ? err.message : "Couldn't record that rent review.";
+    redirect(`/portal/properties/${propertyId}?leaseError=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(`/portal/properties/${propertyId}`);
 }

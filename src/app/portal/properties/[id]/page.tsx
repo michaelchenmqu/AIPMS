@@ -20,6 +20,10 @@ import {
   completeInspectionAction,
   cancelInspectionAction,
   createTenantLoginAction,
+  reviewTenantApplicationAction,
+  recordWaterUsageChargeAction,
+  updateBondTrackingAction,
+  reviewRentAction,
 } from "../actions";
 
 const CONDITION_TYPE_LABEL: Record<string, string> = {
@@ -59,8 +63,10 @@ export default async function PropertyDetailPage({
           ledgerEntries: { orderBy: { date: "desc" } },
           conditionReports: { orderBy: { createdAt: "desc" }, include: { roomChecks: true } },
           inspections: { orderBy: { scheduledFor: "desc" } },
+          rentReviews: { orderBy: { createdAt: "desc" } },
         },
       },
+      applications: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!property) notFound();
@@ -84,6 +90,7 @@ export default async function PropertyDetailPage({
   const proto = host.startsWith("localhost") ? "http" : "https";
   const guestUrl = `${proto}://${host}/guest?propertyId=${property.id}`;
   const guestQrDataUrl = await QRCode.toDataURL(guestUrl, { margin: 1, width: 160, color: { dark: "#0b2b33" } });
+  const applyUrl = `${proto}://${host}/apply?propertyId=${property.id}`;
 
   return (
     <div>
@@ -160,6 +167,47 @@ export default async function PropertyDetailPage({
           sub={`Airbnb ${property.airbnbScore} · Booking ${property.bookingScore} · Stayz ${property.stayzScore}`}
         />
       </div>
+
+      {property.lettingMode === "LONG_TERM" && !activeLease && (
+        <Card className="p-6 mb-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
+            <div className="text-sm font-semibold text-[var(--color-navy)]">Applications</div>
+          </div>
+          <div className="text-xs text-[var(--color-muted)] mb-4 font-mono break-all bg-[var(--color-sand-100)] rounded-lg px-3 py-2">
+            {applyUrl}
+          </div>
+          <div className="flex flex-col gap-3">
+            {property.applications.map((a) => (
+              <div key={a.id} className="flex items-center justify-between gap-3 text-sm border-b border-[var(--color-sand-200)] pb-3">
+                <div className="min-w-0">
+                  <div className="font-medium text-[var(--color-navy)]">{a.name}</div>
+                  <div className="text-xs text-[var(--color-muted)]">
+                    {a.email}
+                    {a.phone ? ` · ${a.phone}` : ""}
+                    {a.moveInDate ? ` · wants ${formatDate(a.moveInDate)}` : ""}
+                  </div>
+                  {a.note && <div className="text-xs text-[var(--color-muted)] mt-0.5">{a.note}</div>}
+                </div>
+                {a.status === "PENDING" ? (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <form action={reviewTenantApplicationAction.bind(null, property.id, a.id, "APPROVED")}>
+                      <button className="tap text-xs font-semibold text-[var(--color-teal-dark)] hover:underline">Approve</button>
+                    </form>
+                    <form action={reviewTenantApplicationAction.bind(null, property.id, a.id, "REJECTED")}>
+                      <button className="tap text-xs text-[var(--color-muted)] hover:text-[var(--color-error)]">Reject</button>
+                    </form>
+                  </div>
+                ) : (
+                  <Badge tone={a.status === "APPROVED" ? "success" : "neutral"}>{a.status}</Badge>
+                )}
+              </div>
+            ))}
+            {property.applications.length === 0 && (
+              <div className="text-sm text-[var(--color-muted)]">No applications yet — share the link above.</div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {property.lettingMode === "LONG_TERM" && (
         <Card className="p-6 mb-6">
@@ -263,6 +311,20 @@ export default async function PropertyDetailPage({
                 </button>
               </form>
 
+              <form action={recordWaterUsageChargeAction.bind(null, property.id, activeLease.id)} className="flex items-end gap-2 mb-5 flex-wrap">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-muted)] mb-1">Water usage amount</label>
+                  <input name="amount" type="number" step="0.01" required className="text-sm border border-[var(--color-sand-400)] rounded-lg px-3 py-2 w-32" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-muted)] mb-1">Date</label>
+                  <input name="date" type="date" className="text-sm border border-[var(--color-sand-400)] rounded-lg px-3 py-2" />
+                </div>
+                <button className="tap text-sm font-semibold bg-white border border-[var(--color-sand-400)] text-[var(--color-navy)] rounded-lg px-4 py-2">
+                  Record water usage charge
+                </button>
+              </form>
+
               <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-muted-2)] mb-2.5">Ledger</div>
               <div className="flex flex-col gap-2">
                 {activeLease.ledgerEntries.map((e) => (
@@ -279,6 +341,80 @@ export default async function PropertyDetailPage({
               </div>
             </>
           )}
+        </Card>
+      )}
+
+      {property.lettingMode === "LONG_TERM" && activeLease && (
+        <Card className="p-6 mb-6">
+          <div className="text-sm font-semibold text-[var(--color-navy)] mb-4">Bond &amp; rent review</div>
+
+          <div className="grid sm:grid-cols-2 gap-6">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-muted-2)] mb-2.5">Bond tracking</div>
+              <form action={updateBondTrackingAction.bind(null, property.id, activeLease.id)} className="flex flex-col gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-muted)] mb-1">Status</label>
+                  <select name="bondStatus" defaultValue={activeLease.bondStatus} className="w-full text-sm border border-[var(--color-sand-400)] rounded-lg px-3 py-2">
+                    <option value="PENDING">Pending</option>
+                    <option value="LODGED">Lodged</option>
+                    <option value="CLAIMED">Claimed</option>
+                    <option value="REFUNDED">Refunded</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-muted)] mb-1">Bond authority reference</label>
+                  <input
+                    name="bondReference"
+                    defaultValue={activeLease.bondReference ?? ""}
+                    placeholder="e.g. Rental Bonds Online ref"
+                    className="w-full text-sm border border-[var(--color-sand-400)] rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-muted)] mb-1">Lodged on</label>
+                  <input
+                    name="bondLodgedAt"
+                    type="date"
+                    defaultValue={activeLease.bondLodgedAt ? activeLease.bondLodgedAt.toISOString().slice(0, 10) : ""}
+                    className="w-full text-sm border border-[var(--color-sand-400)] rounded-lg px-3 py-2"
+                  />
+                </div>
+                <button className="tap text-sm font-semibold bg-white border border-[var(--color-sand-400)] text-[var(--color-navy)] rounded-lg px-4 py-2 self-start">
+                  Update bond
+                </button>
+              </form>
+            </div>
+
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-muted-2)] mb-2.5">Rent review</div>
+              <form action={reviewRentAction.bind(null, property.id, activeLease.id)} className="flex flex-col gap-3 mb-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-muted)] mb-1">New rent amount</label>
+                  <input name="newRent" type="number" step="0.01" required defaultValue={activeLease.rentAmount} className="w-full text-sm border border-[var(--color-sand-400)] rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-muted)] mb-1">Effective from</label>
+                  <input name="effectiveDate" type="date" required className="w-full text-sm border border-[var(--color-sand-400)] rounded-lg px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-muted)] mb-1">Note (optional)</label>
+                  <input name="note" placeholder="e.g. suburb median moved" className="w-full text-sm border border-[var(--color-sand-400)] rounded-lg px-3 py-2" />
+                </div>
+                <button className="tap text-sm font-semibold bg-white border border-[var(--color-sand-400)] text-[var(--color-navy)] rounded-lg px-4 py-2 self-start">
+                  Record rent review
+                </button>
+              </form>
+              <div className="flex flex-col gap-1.5">
+                {activeLease.rentReviews.map((r) => (
+                  <div key={r.id} className="text-xs text-[var(--color-muted)]">
+                    {formatDate(r.effectiveDate)}: {formatMoney(r.previousRent)} → {formatMoney(r.newRent)}
+                    {r.note ? ` — ${r.note}` : ""}
+                  </div>
+                ))}
+                {activeLease.rentReviews.length === 0 && <div className="text-xs text-[var(--color-muted)]">No reviews recorded yet.</div>}
+              </div>
+            </div>
+          </div>
         </Card>
       )}
 

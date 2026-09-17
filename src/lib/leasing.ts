@@ -515,3 +515,117 @@ export async function portfolioComplianceSummary(): Promise<{
 
   return { dueThisMonth, overdue, clear, flagged };
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3 — the rest of the paperwork: tenant screening/application
+// intake, bond-reference tracking against the relevant state bond
+// authority, usage-based water billing, and a rent-review audit trail.
+// None of this enforces the real state-specific rules (application
+// disclosure requirements, bond-lodgement deadlines, rent-review notice
+// periods — see the Long-Term Leasing Requirements research); it's the
+// record-keeping those rules would eventually plug into.
+// ---------------------------------------------------------------------------
+
+/** Public — no auth, same posture as the Guest App's own unauthenticated
+ *  intake. A prospective tenant applies for a specific LONG_TERM property;
+ *  staff review it from the property detail page. */
+export async function submitTenantApplication(params: {
+  propertyId: string;
+  name: string;
+  email: string;
+  phone?: string;
+  moveInDate?: Date;
+  note?: string;
+}) {
+  const property = await prisma.property.findUniqueOrThrow({ where: { id: params.propertyId } });
+  if (property.lettingMode !== "LONG_TERM") {
+    throw new LeasingError("This property isn't currently taking applications.");
+  }
+  return prisma.tenantApplication.create({
+    data: {
+      propertyId: params.propertyId,
+      name: params.name,
+      email: params.email,
+      phone: params.phone,
+      moveInDate: params.moveInDate,
+      note: params.note,
+    },
+  });
+}
+
+/** Staff action, "Approve" / "Reject" on a pending application. Approving
+ *  doesn't create a Lease by itself — screening and drafting the actual
+ *  tenancy are different moments — but the property detail page uses an
+ *  approved application's details to pre-fill the "Add a lease" form. */
+export async function reviewTenantApplication(
+  applicationId: string,
+  status: "APPROVED" | "REJECTED",
+  reviewedBy: string,
+  note?: string
+) {
+  return prisma.tenantApplication.update({
+    where: { id: applicationId },
+    data: { status, reviewedAt: new Date(), reviewedBy, reviewNote: note },
+  });
+}
+
+/** Staff action, "Record water usage charge" on a lease's ledger — same
+ *  usage-based-billing discipline already applied to cleaning/linen,
+ *  passed straight through to the tenant with no agency commission taken
+ *  (utilities are a pass-through cost, not revenue). Posts one
+ *  WATER_USAGE ledger entry, same table short-stay and rent already use,
+ *  so it shows up in owner statements and reconciliation with no changes
+ *  of their own. */
+export async function recordWaterUsageCharge(leaseId: string, params: { amount: number; date: Date; memo?: string }) {
+  const lease = await prisma.lease.findUniqueOrThrow({ where: { id: leaseId }, include: { property: true } });
+  if (lease.status !== "ACTIVE" && lease.status !== "ENDING") {
+    throw new LeasingError("This lease isn't active.");
+  }
+  return prisma.trustLedgerEntry.create({
+    data: {
+      ownerId: lease.property.ownerId,
+      leaseId,
+      type: "WATER_USAGE",
+      amount: params.amount,
+      memo: params.memo ?? "Water usage charge",
+      date: params.date,
+    },
+  });
+}
+
+/** Staff action, "Update bond" on a lease's card — tracks status/reference
+ *  against the relevant state bond authority (e.g. NSW Rental Bonds
+ *  Online). AIPMS doesn't lodge the bond itself; see the Long-Term Leasing
+ *  Requirements research on why that stays a portal-driven process for
+ *  every agent, on every PMS. */
+export async function updateBondTracking(
+  leaseId: string,
+  params: { bondStatus: "PENDING" | "LODGED" | "CLAIMED" | "REFUNDED"; bondReference?: string; bondLodgedAt?: Date }
+) {
+  return prisma.lease.update({
+    where: { id: leaseId },
+    data: {
+      bondStatus: params.bondStatus,
+      bondReference: params.bondReference,
+      bondLodgedAt: params.bondLodgedAt,
+    },
+  });
+}
+
+/** Staff action, "Record rent review" — updates the lease's rentAmount
+ *  and logs the change to RentReview for the audit trail. Doesn't check
+ *  whether the effective date respects the relevant state's notice
+ *  period — a real gap, flagged rather than silently assumed away, same
+ *  as the inspection-notice window above. */
+export async function reviewRent(leaseId: string, params: { newRent: number; effectiveDate: Date; note?: string }) {
+  const lease = await prisma.lease.findUniqueOrThrow({ where: { id: leaseId } });
+  if (lease.status !== "ACTIVE" && lease.status !== "ENDING") {
+    throw new LeasingError("This lease isn't active.");
+  }
+  await prisma.$transaction([
+    prisma.rentReview.create({
+      data: { leaseId, previousRent: lease.rentAmount, newRent: params.newRent, effectiveDate: params.effectiveDate, note: params.note },
+    }),
+    prisma.lease.update({ where: { id: leaseId }, data: { rentAmount: params.newRent } }),
+  ]);
+}
