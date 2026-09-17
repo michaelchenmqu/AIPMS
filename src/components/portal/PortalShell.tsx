@@ -12,6 +12,7 @@ const NAV = [
   { href: "/portal/calendar", label: "Calendar", icon: "▧" },
   { href: "/portal/properties", label: "Property performance", icon: "◈" },
   { href: "/portal/reservations", label: "Reservations", icon: "▤" },
+  { href: "/portal/leasing", label: "Leasing", icon: "🔑", badge: "NEW" },
   { href: "/portal/marketing", label: "Marketing", icon: "◔", badge: "NEW" },
   { href: "/portal/owners", label: "Owners", icon: "⌂" },
   { href: "/portal/inbox", label: "Inbox & enquiries", icon: "✉" },

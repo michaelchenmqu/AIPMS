@@ -321,3 +321,170 @@ export async function cancelInspection(inspectionId: string): Promise<RoutineIns
   }
   return prisma.routineInspection.update({ where: { id: inspectionId }, data: { status: "CANCELLED" } });
 }
+
+// ---------------------------------------------------------------------------
+// AI inspection scheduler + portfolio compliance — the efficiency-at-scale
+// features from the Dual-Mode Property Architecture doc's Phase 2 section.
+// A manager running 100+ properties isn't beaten by the cadence math,
+// they're beaten by driving to the same suburb three times in a month —
+// so proposals are grouped by property.region ("geographic clustering"
+// without needing real geocoding) and approved as one batch rather than
+// one lease at a time.
+// ---------------------------------------------------------------------------
+
+/** Quarterly, same cadence used across the leasing research — real
+ *  per-state caps (see the Long-Term Leasing Requirements research) are a
+ *  later refinement, not a blocker for proposing sensible dates now. */
+const INSPECTION_CADENCE_DAYS = 90;
+
+type LeaseForSchedule = {
+  id: string;
+  propertyId: string;
+  startDate: Date;
+  property: { name: string; region: string };
+  inspections: { status: string; scheduledFor: Date }[];
+};
+
+function hasOpenInspection(lease: Pick<LeaseForSchedule, "inspections">): boolean {
+  return lease.inspections.some((i) => i.status === "SCHEDULED" || i.status === "NOTICE_SENT" || i.status === "IN_PROGRESS");
+}
+
+function nextInspectionDueDate(lease: Pick<LeaseForSchedule, "startDate" | "inspections">): Date {
+  const lastCompleted = lease.inspections
+    .filter((i) => i.status === "COMPLETED")
+    .sort((a, b) => b.scheduledFor.getTime() - a.scheduledFor.getTime())[0];
+  const baseline = lastCompleted?.scheduledFor ?? lease.startDate;
+  const due = new Date(baseline);
+  due.setDate(due.getDate() + INSPECTION_CADENCE_DAYS);
+  return due;
+}
+
+export type InspectionProposal = {
+  leaseId: string;
+  propertyId: string;
+  propertyName: string;
+  region: string;
+  dueDate: Date;
+  overdue: boolean;
+};
+
+/** Every ACTIVE/ENDING lease with no inspection currently open (nothing
+ *  scheduled/notice-sent/in-progress) whose next inspection is due this
+ *  month or earlier — grouped by region so staff can see the clustering
+ *  before approving. This is the read-only "propose" half; nothing is
+ *  written until approveInspectionBatch runs. */
+export async function proposeInspectionBatch(): Promise<InspectionProposal[]> {
+  const leases = await prisma.lease.findMany({
+    where: { status: { in: ["ACTIVE", "ENDING"] } },
+    include: { property: true, inspections: true },
+  });
+
+  const now = new Date();
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+  return leases
+    .filter((l) => !hasOpenInspection(l))
+    .map((l) => ({ lease: l, due: nextInspectionDueDate(l) }))
+    .filter(({ due }) => due <= endOfMonth)
+    .map(({ lease, due }) => ({
+      leaseId: lease.id,
+      propertyId: lease.propertyId,
+      propertyName: lease.property.name,
+      region: lease.property.region,
+      dueDate: due,
+      overdue: due < now,
+    }))
+    .sort((a, b) => a.region.localeCompare(b.region) || a.dueDate.getTime() - b.dueDate.getTime());
+}
+
+/** Staff action, "Approve batch" — books each proposed lease's inspection
+ *  for the given date and immediately sends the statutory notice (which,
+ *  via lib/reminders.ts, WhatsApps the tenant directly) — the one-click
+ *  step the design doc describes. A lease that's become ineligible since
+ *  the proposal was generated (e.g. it ended in the meantime) is skipped
+ *  rather than failing the whole batch. */
+export async function approveInspectionBatch(leaseIds: string[], scheduledFor: Date): Promise<{ scheduled: number; skipped: number }> {
+  let scheduled = 0;
+  let skipped = 0;
+  for (const leaseId of leaseIds) {
+    try {
+      const inspection = await scheduleInspection(leaseId, scheduledFor);
+      await sendInspectionNotice(inspection.id);
+      scheduled++;
+    } catch {
+      skipped++;
+    }
+  }
+  return { scheduled, skipped };
+}
+
+export type ComplianceLease = {
+  leaseId: string;
+  propertyId: string;
+  propertyName: string;
+  tenantName: string;
+  dueDate: Date;
+};
+
+export type ComplianceFlagged = ComplianceLease & { flaggedRooms: number; reportId: string };
+
+/** Feeds the "12 due this month, 3 overdue, 45 clear, 2 flagged" dashboard
+ *  — due/overdue come from the same due-date math the scheduler proposes
+ *  from; flagged comes from the most recent COMPLETED inspection's
+ *  condition report having a room check that's flagged and not yet
+ *  reviewed. A lease can be both e.g. "clear" and unrelated to "flagged"
+ *  from an older cycle — these are independent signals, not one taxonomy. */
+export async function portfolioComplianceSummary(): Promise<{
+  dueThisMonth: ComplianceLease[];
+  overdue: ComplianceLease[];
+  clear: ComplianceLease[];
+  flagged: ComplianceFlagged[];
+}> {
+  const leases = await prisma.lease.findMany({
+    where: { status: { in: ["ACTIVE", "ENDING"] } },
+    include: {
+      property: true,
+      tenants: { include: { tenant: true } },
+      inspections: {
+        orderBy: { scheduledFor: "desc" },
+        include: { conditionReport: { include: { roomChecks: true } } },
+      },
+    },
+  });
+
+  const now = new Date();
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+  const dueThisMonth: ComplianceLease[] = [];
+  const overdue: ComplianceLease[] = [];
+  const clear: ComplianceLease[] = [];
+  const flagged: ComplianceFlagged[] = [];
+
+  for (const lease of leases) {
+    const base: ComplianceLease = {
+      leaseId: lease.id,
+      propertyId: lease.propertyId,
+      propertyName: lease.property.name,
+      tenantName: lease.tenants.map((t) => t.tenant.name).join(", ") || "No tenant on record",
+      dueDate: nextInspectionDueDate(lease),
+    };
+
+    const open = hasOpenInspection(lease);
+    if (!open) {
+      if (base.dueDate < now) overdue.push(base);
+      else if (base.dueDate <= endOfMonth) dueThisMonth.push(base);
+    }
+
+    const lastCompleted = lease.inspections.find((i) => i.status === "COMPLETED" && i.conditionReport);
+    if (lastCompleted?.conditionReport) {
+      const flaggedRooms = lastCompleted.conditionReport.roomChecks.filter((rc) => rc.flagged && !rc.reviewedAt);
+      if (flaggedRooms.length > 0) {
+        flagged.push({ ...base, flaggedRooms: flaggedRooms.length, reportId: lastCompleted.conditionReport.id });
+      } else if (!open) {
+        clear.push(base);
+      }
+    }
+  }
+
+  return { dueThisMonth, overdue, clear, flagged };
+}
