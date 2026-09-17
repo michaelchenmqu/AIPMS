@@ -16,6 +16,7 @@ enum Role {
   OWNER
   CONTRACTOR // contractor company/admin
   HOUSEKEEPER // individual worker under a contractor
+  TENANT // long-term leasing tenant — the "tenant portal"
 }
 
 enum ContractorType {
@@ -175,6 +176,8 @@ model User {
   owner        Owner?      @relation(fields: [ownerId], references: [id])
   contractorId String?
   contractor   Contractor? @relation(fields: [contractorId], references: [id])
+  tenantId     String?
+  tenant       Tenant?     @relation(fields: [tenantId], references: [id])
 
   assignedJobs Job[]                @relation("AssignedHousekeeper")
   chatMessages ChatMessage[]
@@ -376,6 +379,16 @@ model WorkOrder {
   status      WorkOrderStatus   @default(OPEN)
   priority    WorkOrderPriority @default(MEDIUM)
   createdAt   DateTime          @default(now())
+
+  // Nullable — a short-stay work order (raised by staff off a guest
+  // message) has neither; a tenant-submitted one has both. urgent is the
+  // tenant's own "this can't wait" flag, distinct from staff-assessed
+  // priority — some states' statutory repair rules key off exactly this.
+  leaseId          String?
+  lease            Lease?  @relation(fields: [leaseId], references: [id])
+  raisedByTenantId String?
+  raisedByTenant   Tenant? @relation(fields: [raisedByTenantId], references: [id])
+  urgent           Boolean @default(false)
 }
 
 model InboxMessage {
@@ -634,9 +647,11 @@ model PropertyModeChange {
   changedAt DateTime @default(now())
 }
 
-// A person renting long-term — parallel to Owner/Contractor. No portal
-// login yet (that's Phase 2's Tenant portal); for now this is just a
-// name/contact record a Lease points at.
+// A person renting long-term — parallel to Owner/Contractor. Optionally
+// has one User (role TENANT, via User.tenantId) for portal login — see
+// lib/leasing.ts#createTenantLogin. Staff provision the login once an
+// email's on file; a Tenant with no User yet is just a name/contact
+// record a Lease points at, same as before Phase 2.
 model Tenant {
   id    String  @id @default(cuid())
   name  String
@@ -645,7 +660,9 @@ model Tenant {
 
   createdAt DateTime @default(now())
 
-  leases LeaseTenant[]
+  leases     LeaseTenant[]
+  users      User[]
+  workOrders WorkOrder[]
 }
 
 // Join table rather than a single tenantId on Lease — co-tenancy
@@ -707,6 +724,7 @@ model Lease {
   ledgerEntries    TrustLedgerEntry[]
   conditionReports ConditionReport[]
   inspections      RoutineInspection[]
+  workOrders       WorkOrder[]
 }
 
 // Entry, exit, or routine — one report per event, holding one

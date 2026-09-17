@@ -18,7 +18,7 @@ const PRIORITY_TONE: Record<string, "error" | "warning" | "neutral"> = {
 
 export default async function WorkOrdersPage() {
   const orders = await prisma.workOrder.findMany({
-    include: { property: true },
+    include: { property: true, raisedByTenant: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -39,9 +39,15 @@ export default async function WorkOrdersPage() {
                   <Card key={o.id} className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="text-sm font-semibold text-[var(--color-navy)]">{o.title}</div>
-                      <Badge tone={PRIORITY_TONE[o.priority]}>{o.priority}</Badge>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {o.urgent && <Badge tone="error">Urgent</Badge>}
+                        <Badge tone={PRIORITY_TONE[o.priority]}>{o.priority}</Badge>
+                      </div>
                     </div>
-                    <div className="text-xs text-[var(--color-muted)] mt-1">{o.property.name}</div>
+                    <div className="text-xs text-[var(--color-muted)] mt-1">
+                      {o.property.name}
+                      {o.raisedByTenant && <span className="text-[var(--color-info)]"> · raised by tenant ({o.raisedByTenant.name})</span>}
+                    </div>
                     <p className="text-xs text-[var(--color-muted)] mt-2 line-clamp-3">{o.description}</p>
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-[11px] text-[var(--color-muted-2)]">{timeAgo(o.createdAt)}</span>

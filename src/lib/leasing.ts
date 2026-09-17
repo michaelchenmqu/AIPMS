@@ -7,6 +7,7 @@
 // same TrustLedgerEntry table and three-way reconciliation short-stay
 // bookings already use; that engine needed zero changes for this.
 
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { conditionCheckRoom } from "@/lib/ai";
 import { sendInspectionNoticeMessage } from "@/lib/reminders";
@@ -169,6 +170,32 @@ export async function endLease(leaseId: string) {
     where: { id: leaseId },
     data: { status: "ENDED", endedAt: new Date() },
   });
+}
+
+/** Staff action, "Create portal login" on a tenant's lease card —
+ *  provisions the User (role TENANT) that lets them sign into /tenant.
+ *  Requires an email on file (Tenant.email is what User.email will be,
+ *  and that column is unique) and refuses to silently overwrite an
+ *  existing login for the same address. The temp password matches every
+ *  other seeded demo account (demo1234) — real deployments would send a
+ *  reset link instead, but there's no email-sending integration in AIPMS
+ *  to hang that off yet. */
+export async function createTenantLogin(tenantId: string): Promise<{ email: string; tempPassword: string }> {
+  const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+  if (!tenant.email) {
+    throw new LeasingError("This tenant needs an email on file before a portal login can be created.");
+  }
+  const existing = await prisma.user.findUnique({ where: { email: tenant.email } });
+  if (existing) {
+    throw new LeasingError("A portal login already exists for this email.");
+  }
+
+  const tempPassword = "demo1234";
+  const passwordHash = bcrypt.hashSync(tempPassword, 10);
+  await prisma.user.create({
+    data: { email: tenant.email, passwordHash, name: tenant.name, role: "TENANT", tenantId: tenant.id },
+  });
+  return { email: tenant.email, tempPassword };
 }
 
 // ---------------------------------------------------------------------------

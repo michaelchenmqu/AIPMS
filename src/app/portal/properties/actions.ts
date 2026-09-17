@@ -18,6 +18,7 @@ import {
   startInspectionReport,
   completeInspection,
   cancelInspection,
+  createTenantLogin,
   LeasingError,
 } from "@/lib/leasing";
 import type { ConditionReportType, ReviewStatus, RentFrequency, RoomKind } from "@prisma/client";
@@ -266,4 +267,24 @@ export async function cancelInspectionAction(propertyId: string, inspectionId: s
   }
   revalidatePath(`/portal/properties/${propertyId}`);
   redirect(`/portal/properties/${propertyId}`);
+}
+
+/** Staff action, "Create portal login" next to a tenant's name — see
+ *  lib/leasing.ts#createTenantLogin. Shows the one-time temp password in
+ *  a banner on success (there's no email-sending integration to hand a
+ *  reset link off to instead) rather than silently creating it. */
+export async function createTenantLoginAction(propertyId: string, tenantId: string) {
+  await requireRole("STAFF");
+  let email: string;
+  let tempPassword: string;
+  try {
+    ({ email, tempPassword } = await createTenantLogin(tenantId));
+  } catch (err) {
+    const message = err instanceof LeasingError ? err.message : "Couldn't create that portal login.";
+    redirect(`/portal/properties/${propertyId}?leaseError=${encodeURIComponent(message)}`);
+  }
+  revalidatePath(`/portal/properties/${propertyId}`);
+  redirect(
+    `/portal/properties/${propertyId}?tenantLoginEmail=${encodeURIComponent(email)}&tenantLoginPassword=${encodeURIComponent(tempPassword)}`
+  );
 }

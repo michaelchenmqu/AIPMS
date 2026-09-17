@@ -19,6 +19,7 @@ import {
   startInspectionReportAction,
   completeInspectionAction,
   cancelInspectionAction,
+  createTenantLoginAction,
 } from "../actions";
 
 const CONDITION_TYPE_LABEL: Record<string, string> = {
@@ -40,10 +41,10 @@ export default async function PropertyDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ leaseError?: string }>;
+  searchParams: Promise<{ leaseError?: string; tenantLoginEmail?: string; tenantLoginPassword?: string }>;
 }) {
   const { id } = await params;
-  const { leaseError } = await searchParams;
+  const { leaseError, tenantLoginEmail, tenantLoginPassword } = await searchParams;
   const property = await prisma.property.findUnique({
     where: { id },
     include: {
@@ -54,7 +55,7 @@ export default async function PropertyDetailPage({
       leases: {
         orderBy: { createdAt: "desc" },
         include: {
-          tenants: { include: { tenant: true } },
+          tenants: { include: { tenant: { include: { users: true } } } },
           ledgerEntries: { orderBy: { date: "desc" } },
           conditionReports: { orderBy: { createdAt: "desc" }, include: { roomChecks: true } },
           inspections: { orderBy: { scheduledFor: "desc" } },
@@ -105,6 +106,13 @@ export default async function PropertyDetailPage({
       {leaseError && (
         <div className="text-sm text-[var(--color-error)] bg-[var(--color-error-bg)] rounded-lg px-4 py-3 mb-5">
           {leaseError}
+        </div>
+      )}
+
+      {tenantLoginEmail && tenantLoginPassword && (
+        <div className="text-sm text-[var(--color-success)] bg-[var(--color-success-bg)] rounded-lg px-4 py-3 mb-5">
+          Portal login created — <span className="font-mono">{tenantLoginEmail}</span> / temp password{" "}
+          <span className="font-mono">{tenantLoginPassword}</span>. Share this with the tenant directly; it&apos;s only shown once.
         </div>
       )}
 
@@ -210,6 +218,25 @@ export default async function PropertyDetailPage({
                     {formatMoney(activeLease.rentAmount)} / {activeLease.rentFrequency.toLowerCase()} · started{" "}
                     {formatDate(activeLease.startDate)}
                     {activeLease.bondAmount ? ` · bond ${formatMoney(activeLease.bondAmount)} (${activeLease.bondStatus.toLowerCase()})` : ""}
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+                    {activeLease.tenants.map((t) =>
+                      t.tenant.users.length > 0 ? (
+                        <span key={t.tenant.id} className="text-[11px] text-[var(--color-success)]">
+                          {t.tenant.name}: portal login active
+                        </span>
+                      ) : (
+                        <form key={t.tenant.id} action={createTenantLoginAction.bind(null, property.id, t.tenant.id)}>
+                          <button
+                            className="tap text-[11px] font-semibold text-[var(--color-teal-dark)] hover:underline disabled:text-[var(--color-muted)] disabled:no-underline"
+                            disabled={!t.tenant.email}
+                            title={t.tenant.email ? undefined : "Add an email on the tenant first"}
+                          >
+                            {t.tenant.name}: create portal login →
+                          </button>
+                        </form>
+                      )
+                    )}
                   </div>
                 </div>
                 <form action={endLeaseAction.bind(null, property.id, activeLease.id)}>
