@@ -9,6 +9,7 @@ const PLATFORM_META: Record<string, { label: string; bg: string }> = {
   INSTAGRAM: { label: "IG", bg: "#c8395a" },
   FACEBOOK: { label: "FB", bg: "#3d7ee8" },
   X: { label: "X", bg: "#14232e" },
+  EMAIL: { label: "@", bg: "#128577" },
 };
 
 const COLUMNS: { key: CampaignStatus; label: string; dot: string }[] = [

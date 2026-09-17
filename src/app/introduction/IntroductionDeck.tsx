@@ -224,6 +224,48 @@ const SLIDES: Slide[] = [
     ),
   },
   {
+    id: "new-features",
+    content: (
+      <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">
+        <Kicker>New since 26 August</Kicker>
+        <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white max-w-2xl">
+          Real trust accounting and WhatsApp — live, not simulated
+        </h2>
+        <div className="mt-8 grid lg:grid-cols-[1fr_1.3fr] gap-10 items-center">
+          <ul className="flex flex-col gap-4 text-[rgba(255,255,255,0.85)] text-[15px] leading-relaxed">
+            <li>
+              <span className="text-white font-semibold">Bank-reconciled trust accounting</span> — a real (sandbox,
+              for now) bank feed connects via Basiq and matches automatically against the trust ledger. Bank
+              balance, ledger balance, and every owner&apos;s balance — checked three ways, every sync.
+            </li>
+            <li>
+              <span className="text-white font-semibold">WhatsApp, in the same Inbox</span> — real guest WhatsApp
+              messages land AI-classified, right alongside Airbnb, Booking.com and direct enquiries. Reply without
+              leaving AIPMS.
+            </li>
+            <li>
+              <span className="text-white font-semibold">Built with AU compliance in view</span> — AUSTRAC&apos;s
+              AML/CTF regime (mandatory since 1 July 2026) is flagged directly on the Trust accounting page as a
+              go-live checklist item, not quietly ignored.
+            </li>
+          </ul>
+          <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
+            <BrowserFrame
+              src="/introduction/trust-accounting.png"
+              alt="Trust accounting page showing bank reconciliation, a three-way check, and owner balances"
+              maxH="46vh"
+            />
+            <BrowserFrame
+              src="/introduction/whatsapp-inbox.png"
+              alt="Inbox showing a real WhatsApp guest message alongside other channels"
+              maxH="46vh"
+            />
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
     id: "guest-spotlight",
     content: (
       <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">

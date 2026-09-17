@@ -17,6 +17,7 @@ export const authConfig = {
         token.role = user.role;
         token.ownerId = user.ownerId;
         token.contractorId = user.contractorId;
+        token.tenantId = user.tenantId;
       }
       return token;
     },
@@ -25,6 +26,7 @@ export const authConfig = {
       session.user.role = token.role as Role;
       session.user.ownerId = (token.ownerId as string | null) ?? null;
       session.user.contractorId = (token.contractorId as string | null) ?? null;
+      session.user.tenantId = (token.tenantId as string | null) ?? null;
       return session;
     },
   },

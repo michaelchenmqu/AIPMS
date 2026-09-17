@@ -101,6 +101,94 @@ export async function cleanCheckRoom(params: {
 }
 
 // ---------------------------------------------------------------------------
+// AI condition check — the clean-check pipeline repointed for long-term
+// leasing. An entry report just documents each room (nothing to compare
+// against yet); an exit or routine-inspection report compares its photo
+// against that lease's own entry photo for the same room, instead of a
+// fixed portfolio reference. Same soft-flag posture as clean-check: it
+// queues a room for staff review, it never blocks anything on its own.
+// ---------------------------------------------------------------------------
+export async function conditionCheckRoom(params: {
+  reportId: string;
+  room: string;
+  mode: "document" | "compare";
+  photoDataUrl?: string | null;
+  baselinePhotoDataUrl?: string | null;
+}): Promise<{ matchPercent: number | null; flagged: boolean; note: string }> {
+  const c = client();
+  const roomLabel = params.room.replace("_", " ");
+
+  if (params.mode === "document") {
+    if (c && params.photoDataUrl?.startsWith("data:image")) {
+      try {
+        const [, mediaType, base64] = params.photoDataUrl.match(/^data:(image\/\w+);base64,(.+)$/) ?? [];
+        const content: Anthropic.MessageParam["content"] = [
+          {
+            type: "text",
+            text: `You're documenting the entry condition of the ${roomLabel} in a rental property, for the tenancy record. Respond ONLY with JSON: {"note": "one short factual sentence describing visible condition"}.`,
+          },
+        ];
+        if (base64) {
+          content.push({
+            type: "image",
+            source: { type: "base64", media_type: (mediaType as never) ?? "image/jpeg", data: base64 },
+          });
+        }
+        const msg = await c.messages.create({ model: MODEL, max_tokens: 150, messages: [{ role: "user", content }] });
+        const text = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+        const parsed = extractJson(text, { note: "Condition documented at entry." });
+        return { matchPercent: null, flagged: false, note: parsed.note };
+      } catch {
+        // fall through to mock
+      }
+    }
+    return { matchPercent: null, flagged: false, note: "Condition documented at entry — baseline for future reports." };
+  }
+
+  const hasBaseline = params.baselinePhotoDataUrl?.startsWith("data:image") ?? false;
+  if (!hasBaseline) {
+    return { matchPercent: null, flagged: false, note: "No entry baseline photo for this room yet — captured for the record only." };
+  }
+
+  if (c && params.photoDataUrl?.startsWith("data:image")) {
+    try {
+      const [, curType, curB64] = params.photoDataUrl.match(/^data:(image\/\w+);base64,(.+)$/) ?? [];
+      const [, baseType, baseB64] = params.baselinePhotoDataUrl!.match(/^data:(image\/\w+);base64,(.+)$/) ?? [];
+      const content: Anthropic.MessageParam["content"] = [
+        {
+          type: "text",
+          text: `Compare these two photos of the same ${roomLabel} in a leased rental property: the first is the entry-condition baseline, the second is the current condition. Note any new damage or wear beyond fair use, or anything missing. Respond ONLY with JSON: {"matchPercent": number 0-100 (100 = unchanged since entry), "note": "one short sentence"}.`,
+        },
+      ];
+      if (baseB64) {
+        content.push({ type: "image", source: { type: "base64", media_type: (baseType as never) ?? "image/jpeg", data: baseB64 } });
+      }
+      if (curB64) {
+        content.push({ type: "image", source: { type: "base64", media_type: (curType as never) ?? "image/jpeg", data: curB64 } });
+      }
+      const msg = await c.messages.create({ model: MODEL, max_tokens: 200, messages: [{ role: "user", content }] });
+      const text = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+      const parsed = extractJson(text, { matchPercent: 92, note: "Consistent with entry condition." });
+      const matchPercent = Math.max(0, Math.min(100, Math.round(parsed.matchPercent)));
+      return { matchPercent, flagged: matchPercent < 85, note: parsed.note };
+    } catch {
+      // fall through to mock
+    }
+  }
+
+  const r = seededRandom(`${params.reportId}:${params.room}`);
+  const matchPercent = Math.round(80 + r * 19); // 80-99
+  const flagged = matchPercent < 85;
+  const notes: Record<string, string> = {
+    LIVING_ROOM: flagged ? "Carpet shows wear near the entry beyond normal use." : "Consistent with entry condition.",
+    BEDROOM: flagged ? "Scuff marks on the wall not present at entry." : "Consistent with entry condition.",
+    KITCHEN: flagged ? "Bench surface shows a stain not present at entry." : "Consistent with entry condition.",
+    BATHROOM: flagged ? "Grout discolouration beyond fair wear and tear." : "Consistent with entry condition.",
+  };
+  return { matchPercent, flagged, note: notes[params.room] ?? "Reviewed against entry baseline." };
+}
+
+// ---------------------------------------------------------------------------
 // AI inbox classification — guest/owner/channel messages -> kind + confidence
 // + suggested actions, feeding the unified inbox and work-order pipeline.
 // ---------------------------------------------------------------------------

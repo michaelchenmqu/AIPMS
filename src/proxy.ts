@@ -12,6 +12,7 @@ const GUARDS: { prefix: string; roles: string[] }[] = [
   { prefix: "/contractor", roles: ["CONTRACTOR"] },
   { prefix: "/app/owner", roles: ["OWNER"] },
   { prefix: "/app/housekeeper", roles: ["HOUSEKEEPER"] },
+  { prefix: "/tenant", roles: ["TENANT"] },
 ];
 
 const ROLE_HOME: Record<string, string> = {
@@ -19,6 +20,7 @@ const ROLE_HOME: Record<string, string> = {
   OWNER: "/owner",
   CONTRACTOR: "/contractor",
   HOUSEKEEPER: "/app/housekeeper",
+  TENANT: "/tenant",
 };
 
 export default auth((req) => {
@@ -39,5 +41,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/portal/:path*", "/owner/:path*", "/contractor/:path*", "/app/:path*"],
+  matcher: ["/portal/:path*", "/owner/:path*", "/contractor/:path*", "/app/:path*", "/tenant/:path*"],
 };

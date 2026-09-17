@@ -16,6 +16,7 @@ enum Role {
   OWNER
   CONTRACTOR // contractor company/admin
   HOUSEKEEPER // individual worker under a contractor
+  TENANT // long-term leasing tenant — the "tenant portal"
 }
 
 enum ContractorType {
@@ -34,6 +35,7 @@ enum Channel {
   BOOKING_COM
   STAYZ
   DIRECT
+  WHATSAPP
 }
 
 enum JobType {
@@ -53,6 +55,12 @@ enum RoomKind {
   BEDROOM
   KITCHEN
   BATHROOM
+}
+
+enum ReviewStatus {
+  APPROVED
+  REJECTED
+  RETURNED
 }
 
 enum LinenItem {
@@ -95,6 +103,7 @@ enum LedgerType {
   OWNER_PAYOUT
   COMMISSION
   EXPENSE
+  WATER_USAGE
 }
 
 enum ChatRole {
@@ -108,6 +117,55 @@ enum CampaignStatus {
   NEEDS_REVIEW
 }
 
+enum PropertyLettingMode {
+  SHORT_TERM
+  LONG_TERM
+}
+
+enum LeaseTermType {
+  FIXED_TERM
+  PERIODIC
+}
+
+enum RentFrequency {
+  WEEKLY
+  FORTNIGHTLY
+  MONTHLY
+}
+
+enum BondStatus {
+  PENDING
+  LODGED
+  CLAIMED
+  REFUNDED
+}
+
+enum LeaseStatus {
+  ACTIVE
+  ENDING
+  ENDED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ConditionReportType {
+  ENTRY
+  EXIT
+  ROUTINE
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  NOTICE_SENT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -116,21 +174,29 @@ model User {
   role         Role
   createdAt    DateTime @default(now())
 
+  // WhatsApp number (E.164), for housekeepers only today — lets staff send
+  // a same-day gas-bottle-check reminder. Nullable: most seed/demo users
+  // don't have one, and reminders simply skip anyone without a phone.
+  phone String?
+
   ownerId      String?
   owner        Owner?      @relation(fields: [ownerId], references: [id])
   contractorId String?
   contractor   Contractor? @relation(fields: [contractorId], references: [id])
+  tenantId     String?
+  tenant       Tenant?     @relation(fields: [tenantId], references: [id])
 
-  assignedJobs Job[]         @relation("AssignedHousekeeper")
+  assignedJobs Job[]                @relation("AssignedHousekeeper")
   chatMessages ChatMessage[]
+  modeChanges  PropertyModeChange[]
 }
 
 model Owner {
-  id         String     @id @default(cuid())
+  id         String             @id @default(cuid())
   name       String
-  email      String     @unique
+  email      String             @unique
   region     String?
-  createdAt  DateTime   @default(now())
+  createdAt  DateTime           @default(now())
   users      User[]
   properties Property[]
   statements Statement[]
@@ -148,36 +214,55 @@ model Contractor {
 }
 
 model Property {
-  id              String   @id @default(cuid())
+  id              String @id @default(cuid())
   name            String
   address         String
   region          String
   ownerId         String
-  owner           Owner    @relation(fields: [ownerId], references: [id])
-  bedrooms        Int      @default(2)
-  bathrooms       Int      @default(1)
-  basePrice       Float    @default(220)
-  heroImage       String   @default("/images/property-placeholder.svg")
-  images          String   @default("[]") // JSON string array
-  referencePhotos String   @default("{}") // JSON: { LIVING_ROOM: url, ... }
-  airbnbScore     Int      @default(90)
-  bookingScore    Int      @default(88)
-  stayzScore      Int      @default(91)
-  linenParQueen   Int      @default(2)
-  linenParSingle  Int      @default(2)
-  linenParBath    Int      @default(3)
+  owner           Owner  @relation(fields: [ownerId], references: [id])
+  bedrooms        Int    @default(2)
+  bathrooms       Int    @default(1)
+  basePrice       Float  @default(220)
+  heroImage       String @default("/images/property-placeholder.svg")
+  images          String @default("[]") // JSON string array
+  referencePhotos String @default("{}") // JSON: { LIVING_ROOM: url, ... }
+  airbnbScore     Int    @default(90)
+  bookingScore    Int    @default(88)
+  stayzScore      Int    @default(91)
+  linenParQueen   Int    @default(2)
+  linenParSingle  Int    @default(2)
+  linenParBath    Int    @default(3)
 
   // Guest-facing info, shown in the Guest App and drawn on by the AI
   // concierge assistant.
   wifiNetwork  String?
   wifiPassword String?
+  checkInTime  String  @default("3:00 PM")
   checkoutTime String  @default("10:00 AM")
   houseManual  String? // free-form: parking, bins, appliances, nearby food
+  binDay       String? // free-form, e.g. "General: Tuesday · Recycling: Wednesday (fortnightly)"
+
+  // Whether this property has a gas bottle (BBQ, hot water, etc.) that needs
+  // checking/refilling — drives the housekeeper gas-bottle-check reminder.
+  hasGasBottle Boolean @default(false)
 
   // Used for the Guest App's weather forecast. Nullable — the forecast is
   // simply omitted for properties without coordinates.
   latitude  Float?
   longitude Float?
+
+  // Set once a staff member connects this property through Channex — see
+  // lib/channex.ts. Null means the property's calendar is still
+  // manually-managed / seed data only.
+  channexPropertyId String?
+
+  // Whether this property is currently short-term let (nightly bookings,
+  // OTA-synced) or long-term leased. Switching is a guarded staff action —
+  // see lib/leasing.ts — not a free field edit: it's blocked while there's
+  // open business on the other side (an upcoming/in-stay Reservation, or an
+  // active/ending Lease). Old history under either mode is never deleted or
+  // hidden when the property switches — see PropertyModeChange.
+  lettingMode PropertyLettingMode @default(SHORT_TERM)
 
   createdAt DateTime @default(now())
 
@@ -187,6 +272,9 @@ model Property {
   inboxMessages InboxMessage[]
   statements    Statement[]
   campaigns     Campaign[]
+  modeChanges   PropertyModeChange[]
+  leases        Lease[]
+  applications  TenantApplication[]
 }
 
 model Reservation {
@@ -194,12 +282,31 @@ model Reservation {
   propertyId  String
   property    Property          @relation(fields: [propertyId], references: [id])
   guestName   String
+  // WhatsApp number (E.164) to send the pre-arrival reminder to. Populated
+  // from Channex's booking "customer" object when the OTA provides one, or
+  // entered manually by staff for direct bookings — see
+  // src/app/portal/reservations/actions.ts#setGuestPhone.
+  guestPhone  String?
   channel     Channel
   checkIn     DateTime
   checkOut    DateTime
   totalAmount Float
   status      ReservationStatus @default(UPCOMING)
   createdAt   DateTime          @default(now())
+
+  // Set once the day-before-arrival WhatsApp reminder sends successfully —
+  // makes both the cron route and the manual "Send" button idempotent, so
+  // running either twice in a day never double-messages a guest.
+  checkinReminderSentAt DateTime?
+
+  // Set once the post-checkout review-request WhatsApp sends — same
+  // idempotency purpose as checkinReminderSentAt above.
+  reviewRequestSentAt DateTime?
+
+  // The OTA/Channex booking reference. Null for seed/manually-entered
+  // reservations. Unique so a re-delivered webhook upserts instead of
+  // duplicating a booking.
+  externalId String? @unique
 
   jobs              Job[]
   guestChatMessages GuestChatMessage[]
@@ -229,7 +336,7 @@ model Job {
   departureAt       DateTime?
   departurePhotoUrl String?
 
-  hourlyRate    Float @default(28)
+  hourlyRate    Float  @default(28)
   computedHours Float?
   laborCost     Float?
   linenCost     Float?
@@ -237,23 +344,29 @@ model Job {
 
   createdAt DateTime @default(now())
 
+  // Set once the same-day gas-bottle-check WhatsApp reminder sends to the
+  // assigned housekeeper — see lib/reminders.ts#sendGasBottleReminders.
+  // Only ever set for jobs at a hasGasBottle property.
+  gasReminderSentAt DateTime?
+
   roomChecks JobRoomCheck[]
   linenUsage LinenUsage[]
 }
 
 model JobRoomCheck {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   jobId         String
-  job           Job       @relation(fields: [jobId], references: [id])
+  job           Job           @relation(fields: [jobId], references: [id])
   room          RoomKind
   afterPhotoUrl String?
   matchPercent  Int?
-  flagged       Boolean   @default(false)
+  flagged       Boolean       @default(false)
   aiNote        String?
   reviewedAt    DateTime?
   reviewedBy    String?
   reviewNote    String?
-  createdAt     DateTime  @default(now())
+  reviewStatus  ReviewStatus?
+  createdAt     DateTime      @default(now())
 }
 
 model LinenUsage {
@@ -274,15 +387,30 @@ model WorkOrder {
   status      WorkOrderStatus   @default(OPEN)
   priority    WorkOrderPriority @default(MEDIUM)
   createdAt   DateTime          @default(now())
+
+  // Nullable — a short-stay work order (raised by staff off a guest
+  // message) has neither; a tenant-submitted one has both. urgent is the
+  // tenant's own "this can't wait" flag, distinct from staff-assessed
+  // priority — some states' statutory repair rules key off exactly this.
+  leaseId          String?
+  lease            Lease?  @relation(fields: [leaseId], references: [id])
+  raisedByTenantId String?
+  raisedByTenant   Tenant? @relation(fields: [raisedByTenantId], references: [id])
+  urgent           Boolean @default(false)
 }
 
 model InboxMessage {
-  id         String    @id @default(cuid())
+  id         String      @id @default(cuid())
   propertyId String?
-  property   Property? @relation(fields: [propertyId], references: [id])
+  property   Property?   @relation(fields: [propertyId], references: [id])
   fromName   String
-  fromEmail  String
-  channel    Channel   @default(DIRECT)
+  // One of these two identifies the sender, depending on channel — email for
+  // Airbnb/Booking.com/Stayz/Direct, phone (E.164, from the WhatsApp Cloud
+  // API's webhook payload) for WhatsApp. Whichever the channel doesn't use
+  // stays null.
+  fromEmail  String?
+  fromPhone  String?
+  channel    Channel     @default(DIRECT)
   subject    String
   body       String
   status     InboxStatus @default(OPEN)
@@ -328,6 +456,62 @@ model TrustLedgerEntry {
   amount  Float
   memo    String
   date    DateTime   @default(now())
+
+  // Set for a long-term-leasing entry (rent, commission on rent, etc.) so
+  // the lease's own ledger view can filter to just its lines. Null for
+  // every short-stay entry — those aren't attributed to a single booking
+  // today, only to the owner. The reconciliation engine itself doesn't
+  // care either way: it just sums amounts by owner.
+  leaseId String?
+  lease   Lease?  @relation(fields: [leaseId], references: [id])
+
+  // Set once this entry is matched to a real bank line during reconciliation
+  // — see BankTransaction. Null means still unreconciled.
+  bankTransaction BankTransaction?
+}
+
+enum BankConnectionStatus {
+  PENDING
+  ACTIVE
+  FAILED
+}
+
+// The agency's single pooled trust bank account — one connection, not one
+// per owner (owner-level balances come from summing TrustLedgerEntry by
+// ownerId, the second leg of the required three-way reconciliation: bank
+// balance vs. ledger balance vs. sum of owner balances).
+//
+// NOTE ON ACCURACY: written against Basiq's documented Connect flow
+// (basiq.io) — server token, a Basiq user per connection, a hosted consent
+// redirect, transactions pulled after. Not yet exercised against a real
+// Basiq sandbox account. Confirm exact field/endpoint names against
+// Basiq's docs during the first real connection.
+model BankConnection {
+  id                String               @id @default(cuid())
+  basiqUserId       String
+  basiqConnectionId String?
+  institutionName   String?
+  status            BankConnectionStatus @default(PENDING)
+  createdAt         DateTime             @default(now())
+
+  transactions BankTransaction[]
+}
+
+model BankTransaction {
+  id                 String         @id @default(cuid())
+  connectionId       String
+  connection         BankConnection @relation(fields: [connectionId], references: [id])
+  basiqTransactionId String         @unique
+  date               DateTime
+  description        String
+  amount             Float
+  createdAt          DateTime       @default(now())
+
+  // Staff (or the auto-match heuristic) links this to the ledger entry it
+  // represents. Null means still unreconciled — the whole point of this
+  // table existing.
+  matchedLedgerEntryId String?           @unique
+  matchedLedgerEntry   TrustLedgerEntry? @relation(fields: [matchedLedgerEntryId], references: [id])
 }
 
 // AI-assisted social promotion of vacant nights, sourced from a gap in the
@@ -341,12 +525,23 @@ model Campaign {
 
   caption   String
   hashtags  String @default("[]") // JSON string array
-  platforms String @default("[]") // JSON string array: INSTAGRAM | FACEBOOK | X
+  platforms String @default("[]") // JSON string array: INSTAGRAM | FACEBOOK | X | EMAIL
 
   status      CampaignStatus @default(SCHEDULED)
   reviewNote  String?
   scheduledAt DateTime?
   postedAt    DateTime?
+
+  // Only used when "EMAIL" is one of the platforms — who the campaign email
+  // goes to. No subscriber-list model exists yet, so this is set explicitly
+  // per campaign rather than resolved from one.
+  emailRecipient String?
+
+  // Set when a post actually publishes through Meta's Graph API (real
+  // credentials configured) rather than being simulated — lets the UI link
+  // out to the live post instead of just showing simulated numbers.
+  facebookPostId  String?
+  instagramPostId String?
 
   reach              Int   @default(0)
   clicks             Int   @default(0)
@@ -428,6 +623,209 @@ model GuestFeedback {
   communicationRating Int?
   accuracyRating      Int?
   comment             String?
+
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------
+// Long-term leasing — Phase 1 (see the "Dual-Mode Property Architecture"
+// design). A Property can be either SHORT_TERM or LONG_TERM
+// (lettingMode); everything below only ever applies to a LONG_TERM one.
+// The trust-reconciliation engine (BankConnection/BankTransaction/
+// TrustLedgerEntry above) is entirely unchanged — a lease just posts
+// TrustLedgerEntry rows the same way a short-stay booking does.
+// ---------------------------------------------------------------------
+
+// Audit trail for Property.lettingMode — every switch, who did it, and
+// why. Never overwritten or deleted, so "this property was short-term
+// Jan–Jun, then leased from Jul" stays queryable regardless of which mode
+// it's in today. See lib/leasing.ts for the guarded switch itself.
+model PropertyModeChange {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  fromMode PropertyLettingMode
+  toMode   PropertyLettingMode
+  note     String?
+
+  changedByUserId String
+  changedByUser   User   @relation(fields: [changedByUserId], references: [id])
+
+  changedAt DateTime @default(now())
+}
+
+// A person renting long-term — parallel to Owner/Contractor. Optionally
+// has one User (role TENANT, via User.tenantId) for portal login — see
+// lib/leasing.ts#createTenantLogin. Staff provision the login once an
+// email's on file; a Tenant with no User yet is just a name/contact
+// record a Lease points at, same as before Phase 2.
+model Tenant {
+  id    String  @id @default(cuid())
+  name  String
+  email String? @unique
+  phone String?
+
+  createdAt DateTime @default(now())
+
+  leases     LeaseTenant[]
+  users      User[]
+  workOrders WorkOrder[]
+}
+
+// Join table rather than a single tenantId on Lease — co-tenancy
+// (roommates, couples) is the common case, not the exception, and this
+// costs nothing to model correctly from day one versus retrofitting once
+// real leases exist.
+model LeaseTenant {
+  id       String @id @default(cuid())
+  leaseId  String
+  lease    Lease  @relation(fields: [leaseId], references: [id])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([leaseId, tenantId])
+}
+
+model Lease {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  termType  LeaseTermType @default(FIXED_TERM)
+  startDate DateTime
+  // Null once a fixed term has rolled over into a periodic (month-to-month)
+  // tenancy — there's no scheduled end date to show.
+  endDate   DateTime?
+
+  rentAmount        Float
+  rentFrequency     RentFrequency @default(WEEKLY)
+  // The agency's cut of each rent payment, e.g. 0.08 = 8% — mirrors the
+  // commission rate already used for short-stay bookings, just named for
+  // what it means on this side.
+  managementFeeRate Float         @default(0.08)
+
+  bondAmount    Float?
+  bondStatus    BondStatus @default(PENDING)
+  // The state bond authority's reference number once lodged (e.g. NSW
+  // Rental Bonds Online) — AIPMS tracks the reference, it doesn't lodge
+  // the bond itself; see the Long-Term Leasing Requirements research on
+  // why that's a portal-driven process for every agent, on every PMS.
+  bondReference String?
+  bondLodgedAt  DateTime?
+
+  status  LeaseStatus @default(ACTIVE)
+  endedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  // Idempotency guards for lib/reminders.ts's leasing nudges — same
+  // "*SentAt column" pattern as Reservation.checkinReminderSentAt, but
+  // keyed to the computed due date (not just a timestamp) so a new missed
+  // payment after an old one was reminded-about still triggers a fresh
+  // nudge instead of being silently gated by the old send.
+  rentReminderSentFor    DateTime?
+  arrearsReminderSentFor DateTime?
+  renewalReminderSentAt  DateTime?
+
+  tenants          LeaseTenant[]
+  ledgerEntries    TrustLedgerEntry[]
+  conditionReports ConditionReport[]
+  inspections      RoutineInspection[]
+  workOrders       WorkOrder[]
+  rentReviews      RentReview[]
+}
+
+// Phase 3 — a prospective tenant's application for a LONG_TERM property,
+// before any Lease exists. Staff review and approve/reject; approving
+// doesn't auto-create a Lease (screening and the actual paperwork are
+// different moments) but pre-fills the "Add a lease" form with the
+// applicant's details — see the property detail page.
+model TenantApplication {
+  id         String            @id @default(cuid())
+  propertyId String
+  property   Property          @relation(fields: [propertyId], references: [id])
+  name       String
+  email      String
+  phone      String?
+  moveInDate DateTime?
+  note       String?
+  status     ApplicationStatus @default(PENDING)
+  reviewedAt DateTime?
+  reviewedBy String?
+  reviewNote String?
+  createdAt  DateTime          @default(now())
+}
+
+// Phase 3 — an audit trail for rent changes over a lease's life. The
+// review itself (deciding a new figure, drafting the compliant notice
+// letter) is a staff/AI judgement call, not enforced here — this just
+// records what changed, when, and updates Lease.rentAmount to match.
+// State-specific notice-period enforcement (see the Long-Term Leasing
+// Requirements research) is a real gap, not yet checked before saving.
+model RentReview {
+  id            String   @id @default(cuid())
+  leaseId       String
+  lease         Lease    @relation(fields: [leaseId], references: [id])
+  previousRent  Float
+  newRent       Float
+  effectiveDate DateTime
+  note          String?
+  createdAt     DateTime @default(now())
+}
+
+// Entry, exit, or routine — one report per event, holding one
+// ConditionRoomCheck per room. The entry report is the baseline every
+// later report (exit, or a routine inspection's report) gets compared
+// against — see lib/leasing.ts#recordConditionRoomPhoto. Built on the
+// same AI clean-check photo pipeline as JobRoomCheck, repointed to compare
+// against a lease's own entry photos instead of a portfolio reference.
+model ConditionReport {
+  id        String              @id @default(cuid())
+  leaseId   String
+  lease     Lease               @relation(fields: [leaseId], references: [id])
+  type      ConditionReportType
+  createdAt DateTime            @default(now())
+
+  roomChecks ConditionRoomCheck[]
+  inspection RoutineInspection?
+}
+
+model ConditionRoomCheck {
+  id                String          @id @default(cuid())
+  conditionReportId String
+  conditionReport   ConditionReport @relation(fields: [conditionReportId], references: [id])
+  room              RoomKind
+  photoUrl          String?
+  // Null on an ENTRY report — there's no baseline yet to compare against,
+  // it IS the baseline. Populated on EXIT/ROUTINE reports once an entry
+  // photo exists for the same room.
+  matchPercent      Int?
+  flagged           Boolean         @default(false)
+  aiNote            String?
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  reviewNote        String?
+  reviewStatus      ReviewStatus?
+  createdAt         DateTime        @default(now())
+}
+
+// A scheduled routine inspection for a lease. noticeGivenAt/status track
+// the statutory notice-before-entry requirement every state imposes
+// (typically 7 days) — see the Long-Term Leasing Requirements research for
+// the state-by-state cadence caps this will eventually enforce.
+model RoutineInspection {
+  id            String           @id @default(cuid())
+  leaseId       String
+  lease         Lease            @relation(fields: [leaseId], references: [id])
+  scheduledFor  DateTime
+  noticeGivenAt DateTime?
+  status        InspectionStatus @default(SCHEDULED)
+
+  // Set once staff start walking through the property — creates a
+  // ConditionReport(type ROUTINE) to hold the room photos.
+  conditionReportId String?          @unique
+  conditionReport   ConditionReport? @relation(fields: [conditionReportId], references: [id])
 
   createdAt DateTime @default(now())
 }

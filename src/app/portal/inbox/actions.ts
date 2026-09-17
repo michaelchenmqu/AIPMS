@@ -1,8 +1,37 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
+
+export async function replyToWhatsApp(id: string, formData: FormData) {
+  await requireRole("STAFF");
+  const message = await prisma.inboxMessage.findUniqueOrThrow({ where: { id } });
+  if (message.channel !== "WHATSAPP" || !message.fromPhone) {
+    throw new Error("This message has no WhatsApp number to reply to.");
+  }
+
+  const body = String(formData.get("body") ?? "").trim();
+  if (!body) throw new Error("Reply can't be empty.");
+
+  // A WhatsApp send can fail for real reasons (invalid/expired token, a
+  // recipient no longer reachable) — that shouldn't crash the whole
+  // Inbox page, just report it and leave the message open to retry.
+  let errorMessage: string | null = null;
+  try {
+    await sendWhatsAppMessage({ to: message.fromPhone, body });
+  } catch (err) {
+    errorMessage = err instanceof Error ? err.message : "Failed to send WhatsApp reply.";
+  }
+  if (errorMessage) {
+    redirect(`/portal/inbox?whatsappError=${encodeURIComponent(errorMessage)}`);
+  }
+
+  await prisma.inboxMessage.update({ where: { id }, data: { status: "RESOLVED" } });
+  revalidatePath("/portal/inbox");
+}
 
 export async function resolveMessage(id: string) {
   await requireRole("STAFF");

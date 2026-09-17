@@ -12,6 +12,7 @@ const NAV = [
   { href: "/portal/calendar", label: "Calendar", icon: "▧" },
   { href: "/portal/properties", label: "Property performance", icon: "◈" },
   { href: "/portal/reservations", label: "Reservations", icon: "▤" },
+  { href: "/portal/leasing", label: "Leasing", icon: "🔑", badge: "NEW" },
   { href: "/portal/marketing", label: "Marketing", icon: "◔", badge: "NEW" },
   { href: "/portal/owners", label: "Owners", icon: "⌂" },
   { href: "/portal/inbox", label: "Inbox & enquiries", icon: "✉" },
@@ -20,6 +21,7 @@ const NAV = [
   { href: "/portal/audits", label: "Q&A / audits", icon: "◎" },
   { href: "/portal/invoicing", label: "Invoicing", icon: "$" },
   { href: "/portal/trust", label: "Trust accounting", icon: "⚖" },
+  { href: "/portal/reminders", label: "Reminders", icon: "🔔", badge: "NEW" },
 ];
 
 function NavLinks({

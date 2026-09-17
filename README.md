@@ -95,6 +95,59 @@ product story still demos end-to-end:
 Set `ANTHROPIC_API_KEY` in `.env` to switch all six over to real model
 calls — nothing else needs to change.
 
+## Live integrations
+
+Three more integrations follow the exact same real-call-behind-an-env-var
+pattern as the AI features above — unset, they run as a no-op/simulation so
+the demo site keeps working with zero configuration:
+
+- **Channex.io** (`src/lib/channex.ts`, `CHANNEX_API_KEY`) — channel-manager
+  connectivity to Airbnb/Booking.com/Stayz. "Connect to Channex" on a staff
+  property page registers the property; `src/app/api/channex/webhook/route.ts`
+  receives booking create/update/cancel events back and upserts a
+  `Reservation`, idempotent on `externalId` so retried webhooks never
+  duplicate a booking. Written against Channex's documented API shape —
+  confirm field names against `docs.channex.io` on the first real account.
+- **Meta Graph API** (`src/lib/meta.ts`, `META_PAGE_ACCESS_TOKEN` +
+  `META_PAGE_ID`/`META_IG_USER_ID`) — posts a Marketing campaign straight to
+  a Facebook Page and/or Instagram Business account. Needs `SITE_URL` set to
+  a real public domain — Meta rejects localhost/relative image URLs. Also
+  gated by Meta's own App Review for permissions beyond a token's test
+  users, which is a Meta-side process, not something this codebase controls.
+- **Resend** (`src/lib/email.ts`, `RESEND_API_KEY`) — sends the "Email"
+  campaign platform as a real email via Resend's free tier. Unset, it logs
+  instead of sending.
+- **Basiq** (`src/lib/basiq.ts`, `BASIQ_API_KEY`) — connects a trust bank
+  account (Basiq's sandbox, with fake test institutions, during
+  development) for the Trust accounting page's three-way reconciliation:
+  bank balance, ledger balance, and the sum of every owner's balance all
+  have to match. Transactions auto-match to ledger entries by amount and
+  date; anything ambiguous is left for a staff member to match by hand.
+  Unset, the Trust accounting page just shows the ledger, no bank
+  connection — this is new functionality, not a fallback for something
+  that used to be manual.
+- **WhatsApp Cloud API** (`src/lib/whatsapp.ts`, `WHATSAPP_ACCESS_TOKEN` +
+  `WHATSAPP_PHONE_NUMBER_ID` + `WHATSAPP_VERIFY_TOKEN`) — guest WhatsApp
+  messages land in the staff Inbox (`Channel.WHATSAPP`) via
+  `src/app/api/whatsapp/webhook/route.ts`, AI-classified the same as every
+  other inbox source; staff reply inline from the Inbox card. Same Meta app
+  as the Page/Instagram integration above, different product.
+- **Proactive reminders** (`src/lib/reminders.ts`, same WhatsApp credentials
+  as above) — three WhatsApp sends: a day-before-arrival message to the
+  guest (check-in time, address, weather, bin day, how to reach the Guest
+  App), a same-day post-checkout thank-you with a link to leave a rating,
+  and a same-day nudge to the housekeeper assigned to a turnover clean at a
+  gas-bottle-flagged property. AIPMS has no background job runner, so
+  `POST /api/cron/reminders` (protected by `CRON_SECRET`) is meant to be
+  triggered by a real scheduler — a Railway Cron Job, or any external
+  cron — once a day; `/portal/reminders` has the same three actions as
+  on-demand buttons, for testing or for days nobody's set up a scheduler.
+
+A campaign posted with real credentials configured stores the resulting
+`facebookPostId`/`instagramPostId` on the `Campaign` row; if any selected
+platform fails to publish, the campaign lands in **Needs review** with the
+error as its review note instead of silently losing the attempt.
+
 ## What's real vs. demo-simplified
 
 This is a **demo-grade** build: real database, real auth, real billing math,
@@ -114,6 +167,20 @@ in code comments at the point it matters:
 - **AI cost controls** — the original spec calls for rate-limiting/caching AI
   calls per job. The demo calls the API directly; add a queue + cache layer
   before scaling real usage.
+- **AML/CTF compliance** — AUSTRAC's AML/CTF regime became mandatory for
+  Australian real estate agents on 1 July 2026 (customer due diligence,
+  suspicious-matter reporting, on top of the standard trust-account rules
+  the Trust accounting page's reconciliation targets). This is a real legal
+  compliance program requiring the client's own compliance/legal sign-off
+  on scope and process — this codebase deliberately does not implement it,
+  and flags it prominently on the Trust accounting page instead of
+  pretending it's handled.
+- **No user-management UI** — staff, owner, contractor, and housekeeper
+  accounts are created via `prisma/seed.ts`/direct DB access, not an in-app
+  form. This is why a housekeeper's WhatsApp number (`User.phone`, used by
+  the gas-bottle-check reminder) is set the same way today — a guest's
+  number, by contrast, has a staff-facing quick-add on `/portal/reminders`
+  since that's expected to change per booking.
 
 ## Architecture notes
 
@@ -127,14 +194,18 @@ in code comments at the point it matters:
   small route handlers under `src/app/api/housekeeper/...` for the
   multi-step capture flow the mobile client drives with `fetch`.
 - **Tenant isolation**: `src/lib/owner.ts` / `src/lib/contractor.ts` /
-  `src/lib/housekeeper.ts` / `src/lib/guest.ts` are the single choke points
-  that scope every query to the signed-in owner/contractor/housekeeper — or,
-  for a guest, to one reservation. An owner can never load another owner's
-  property or statement (see the 404 checks in every `[id]` route).
-- **Future PMS integration**: reservation/property/owner data lives behind
-  Prisma models with no hardcoded coupling to a specific channel manager —
-  see `prisma/schema.prisma`. Swapping in a real sync from Guesty or another
-  PMS means writing an importer into these same tables, not touching the UI.
+  `src/lib/housekeeper.ts` / `src/lib/guest.ts` / `src/lib/tenant.ts` are the
+  single choke points that scope every query to the signed-in
+  owner/contractor/housekeeper/tenant — or, for a guest, to one reservation.
+  An owner (or tenant) can never load another owner's (or tenant's) property
+  or statement (see the 404 checks in every `[id]` route).
+- **Channel manager integration**: `src/lib/channex.ts` is the only place
+  that talks to Channex; reservation/property data otherwise lives behind
+  plain Prisma models with no hardcoded coupling to it (see
+  `prisma/schema.prisma`'s `Property.channexPropertyId` /
+  `Reservation.externalId`). Swapping in a different channel manager, or a
+  direct sync from another PMS, means writing a new client against these
+  same tables, not touching the UI.
 
 ## Guest access
 

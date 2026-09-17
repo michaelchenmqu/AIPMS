@@ -12,6 +12,7 @@ const ROLE_HOME: Record<Role, string> = {
   OWNER: "/owner",
   CONTRACTOR: "/contractor",
   HOUSEKEEPER: "/app/housekeeper",
+  TENANT: "/tenant",
 };
 
 export function roleHome(role: Role): string {
