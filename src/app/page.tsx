@@ -4,13 +4,13 @@ const PORTALS = [
   {
     href: "/login?as=staff",
     title: "Web portal",
-    desc: "Back-office: AI Trainer, dashboard, reservations, housekeeping & laundry, invoicing, trust accounting.",
+    desc: "Back-office: AI Trainer, dashboard, reservations, leasing scheduler & compliance, housekeeping & laundry, invoicing, trust accounting.",
     tag: "Staff",
   },
   {
     href: "/login?as=owner",
     title: "Owner portal",
-    desc: "Usage-based statements, portfolio & photos, AI listing suggestions, growth tools.",
+    desc: "Usage-based statements, portfolio & photos, AI listing suggestions, growth tools — across short-stay and leased properties alike.",
     tag: "Owner · desktop",
   },
   {
@@ -36,6 +36,12 @@ const PORTALS = [
     title: "Guest App",
     desc: "Scan-in with last name + arrival date — stay details, self-serve requests to extend or adjust a stay, local weather & recommendations, post-stay feedback, and a friendly AI concierge.",
     tag: "Guest · mobile",
+  },
+  {
+    href: "/login?as=tenant",
+    title: "Tenant portal",
+    desc: "Rent statement, lease terms, condition reports, and maintenance request submission — for long-term tenants.",
+    tag: "Tenant",
   },
 ];
 
@@ -63,12 +69,13 @@ export default function Home() {
             <span className="block">Run Smarter with AI.</span>
           </h1>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-[rgba(255,255,255,0.85)] drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
-            One intelligent platform for managing your holiday letting business: automating operations,
-            verifying every turnover, optimising resources and giving you the insights to make better
-            decisions.
+            One intelligent platform for short-term letting and long-term leasing — sharing the same
+            property record, so any property can move between them without losing its history. Automating
+            operations, verifying every turnover and inspection, optimising resources and giving you the
+            insights to make better decisions.
           </p>
           <p className="mt-3 max-w-2xl text-[15px] font-semibold leading-relaxed text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
-            Happier owners. Better guest experience. More efficient staff.
+            Happier owners. Better guest and tenant experience. More efficient staff.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
@@ -79,7 +86,7 @@ export default function Home() {
             </Link>
           </div>
           <div className="mt-10 text-xs font-semibold tracking-widest uppercase text-[var(--color-teal)]">
-            AIPMS · AI-Powered Holiday Letting Platform
+            AIPMS · AI-Powered Property Management — Short-Stay &amp; Long-Term
           </div>
         </div>
       </div>
@@ -106,14 +113,24 @@ export default function Home() {
             <div className="text-xs text-[rgba(255,255,255,0.5)]">
               Demo build — see the repo README for demo credentials and what&apos;s stubbed vs. real.
             </div>
-            <a
-              href="/introduction"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="tap inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-teal)] hover:underline"
-            >
-              View Introduction ↗
-            </a>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <a
+                href="https://claude.ai/artifact/3TwS74FV6V3477iTvYguBy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tap inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-teal)] hover:underline"
+              >
+                Read the market research ↗
+              </a>
+              <a
+                href="/introduction"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tap inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-teal)] hover:underline"
+              >
+                View Introduction ↗
+              </a>
+            </div>
           </div>
         </div>
       </div>

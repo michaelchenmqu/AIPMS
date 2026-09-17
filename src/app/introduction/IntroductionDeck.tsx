@@ -71,8 +71,9 @@ const SLIDES: Slide[] = [
           Run Smarter with AI.
         </h1>
         <p className="mt-7 max-w-xl text-base text-[rgba(255,255,255,0.7)] leading-relaxed">
-          One intelligent platform for holiday letting operators — six connected portals and apps,
-          built around three outcomes that matter to your bottom line.
+          One intelligent platform for short-term letting and long-term leasing — sharing the same
+          property record — seven connected portals and apps, built around three outcomes that matter to
+          your bottom line.
         </p>
       </div>
     ),
@@ -197,7 +198,7 @@ const SLIDES: Slide[] = [
       <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">
         <Kicker>One platform</Kicker>
         <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white">
-          Six connected experiences, one source of truth
+          Seven connected experiences, one source of truth
         </h2>
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-5">
           {[
@@ -207,6 +208,7 @@ const SLIDES: Slide[] = [
             ["Owner — Mobile App", "/introduction/owner-app.png", "On the go"],
             ["Housekeeper — Mobile App", "/introduction/housekeeper-app.png", "Built for the field"],
             ["Guest — Mobile App", "/introduction/guest-app.png", "No account needed"],
+            ["Tenant — Web portal", "/introduction/tenant-portal.png", "Long-term leasing"],
           ].map(([title, img, tag]) => (
             <div key={title} className="flex flex-col gap-2.5">
               <div className="rounded-lg overflow-hidden border border-[rgba(255,255,255,0.15)] shadow-[0_16px_32px_rgba(0,0,0,0.4)] h-[150px] bg-[#1c1c1c]">
@@ -266,6 +268,50 @@ const SLIDES: Slide[] = [
     ),
   },
   {
+    id: "long-term-leasing",
+    content: (
+      <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">
+        <Kicker>New — Long-term leasing</Kicker>
+        <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white max-w-2xl">
+          One property record. Either letting type. No second system.
+        </h2>
+        <div className="mt-8 grid lg:grid-cols-[1fr_1.3fr] gap-10 items-center">
+          <ul className="flex flex-col gap-4 text-[rgba(255,255,255,0.85)] text-[15px] leading-relaxed">
+            <li>
+              <span className="text-white font-semibold">A guarded mode switch</span> — any property can move
+              between short-stay and long-term leasing without losing its history. The switch is blocked while
+              there&apos;s open business on the other side, so nothing falls through the cracks.
+            </li>
+            <li>
+              <span className="text-white font-semibold">AI inspection scheduler &amp; compliance dashboard</span> —
+              every lease due for a routine inspection is proposed as one batch, grouped by region; approving books
+              each one and sends the tenant&apos;s notice automatically. A live view of due, overdue, clear and
+              flagged across the whole portfolio.
+            </li>
+            <li>
+              <span className="text-white font-semibold">The same AI clean-check pipeline, repointed</span> —
+              condition reports compare a room against that lease&apos;s own entry baseline instead of a portfolio
+              reference, flagging only what actually changed.
+            </li>
+            <li>
+              <span className="text-white font-semibold">A real tenant portal</span> — rent statement, lease terms,
+              condition reports, and maintenance requests that land directly on the staff work-order board, tagged
+              as tenant-raised.
+            </li>
+          </ul>
+          <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
+            <BrowserFrame
+              src="/introduction/leasing-portal.png"
+              alt="Leasing portal showing the lease calendar, rent revenue trend, and short-to-long conversion charts"
+              maxH="52vh"
+            />
+            <BrowserFrame src="/introduction/tenant-portal.png" alt="Tenant portal dashboard for a long-term lease" maxH="52vh" />
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
     id: "guest-spotlight",
     content: (
       <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">
@@ -311,9 +357,9 @@ const SLIDES: Slide[] = [
         </h2>
         <div className="mt-10 grid sm:grid-cols-3 gap-6 max-w-4xl">
           {[
-            ["⌂", "Owner satisfaction", "Usage-based billing, transparent statements, and AI growth suggestions — clear returns, not a black box."],
-            ["♥", "Guest experience", "Self-serve stay requests, local recommendations, and a friendly AI concierge — a great stay without a phone call."],
-            ["⚙", "Staff efficiency", "AI clean-check, inbox triage, and one-click campaigns — verified work, with far less manual chasing."],
+            ["⌂", "Owner satisfaction", "Usage-based billing, transparent statements, and AI growth suggestions — clear returns, not a black box, across short-stay and long-term alike."],
+            ["♥", "Guest & tenant experience", "Self-serve stay requests and a friendly AI concierge for guests; a real portal with rent statements and maintenance requests for tenants."],
+            ["⚙", "Staff efficiency", "AI clean-check, inbox triage, one-click campaigns, and an AI inspection scheduler — verified work, with far less manual chasing."],
           ].map(([icon, title, desc]) => (
             <div key={title} className="rounded-2xl bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] p-6">
               <div className="w-11 h-11 rounded-full bg-[var(--color-teal)] text-[var(--color-navy)] flex items-center justify-center text-xl font-bold mx-auto">
@@ -355,7 +401,7 @@ const SLIDES: Slide[] = [
           </Link>
         </div>
         <div className="mt-10 text-xs font-semibold tracking-widest uppercase text-[var(--color-teal)]">
-          AIPMS · AI-Powered Holiday Letting Platform
+          AIPMS · AI-Powered Property Management — Short-Stay &amp; Long-Term
         </div>
       </div>
     ),

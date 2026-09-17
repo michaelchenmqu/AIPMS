@@ -6,10 +6,11 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui";
 
 const DEMO_ACCOUNTS = [
-  { key: "staff", email: "staff@aipms.demo", label: "Staff — Web portal", desc: "Back-office: dashboard, reservations, housekeeping, invoicing" },
+  { key: "staff", email: "staff@aipms.demo", label: "Staff — Web portal", desc: "Back-office: dashboard, reservations, housekeeping, leasing, invoicing" },
   { key: "owner", email: "james@aipms.demo", label: "James — Owner", desc: "Owner portal + Owner App · 5 properties" },
   { key: "contractor", email: "clean@aipms.demo", label: "Sarah — Contractor", desc: "Contractor portal · Coastal Clean Co" },
   { key: "housekeeper", email: "maria@aipms.demo", label: "Maria — Housekeeper", desc: "Housekeeper App · 2 pending jobs" },
+  { key: "tenant", email: "morgan.ellis@example.com", label: "Morgan — Tenant", desc: "Tenant portal · Hinterland Barn, long-term lease" },
 ];
 
 export default function LoginForm() {
