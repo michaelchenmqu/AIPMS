@@ -115,7 +115,7 @@ export default function Home() {
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <a
-                href="https://claude.ai/artifact/3TwS74FV6V3477iTvYguBy"
+                href="/market-research"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="tap inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-teal)] hover:underline"
