@@ -1,6 +1,19 @@
 import NextAuth from "next-auth";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { authConfig } from "@/auth.config";
+
+// Railway (and most reverse-proxy hosts that aren't Vercel's own edge
+// network) don't reliably make req.nextUrl's origin reflect the public
+// domain — it can fall back to the container's internal bind address
+// (e.g. localhost:8080), sending anyone redirected here to their own
+// machine instead of the live site. Build the origin explicitly from the
+// forwarded headers the proxy actually sets, rather than trusting
+// req.nextUrl's built-in resolution.
+function publicOrigin(req: NextRequest): string {
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? req.nextUrl.host;
+  const proto = req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", "");
+  return `${proto}://${host}`;
+}
 
 const { auth } = NextAuth(authConfig);
 
@@ -30,12 +43,12 @@ export default auth((req) => {
 
   const role = req.auth?.user?.role;
   if (!role) {
-    const loginUrl = new URL("/login", req.nextUrl);
+    const loginUrl = new URL("/login", publicOrigin(req));
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
   if (!guard.roles.includes(role)) {
-    return NextResponse.redirect(new URL(ROLE_HOME[role] ?? "/", req.nextUrl));
+    return NextResponse.redirect(new URL(ROLE_HOME[role] ?? "/", publicOrigin(req)));
   }
   return NextResponse.next();
 });
