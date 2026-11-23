@@ -7,14 +7,14 @@
 // instead of a years-long one. Not linked from anywhere guest-facing —
 // share the URL directly.
 
-import { NextResponse } from "next/server";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { setGuestSession } from "@/lib/guest";
 
 const DEMO_EXTERNAL_ID = "demo-guest-standing";
 const DEMO_GUEST_NAME = "Taylor Demo";
 
-export async function GET(request: Request) {
+export async function GET() {
   const property = await prisma.property.findFirstOrThrow({
     where: { lettingMode: "SHORT_TERM" },
     orderBy: { name: "asc" },
@@ -39,5 +39,5 @@ export async function GET(request: Request) {
   });
 
   await setGuestSession(reservation.id);
-  return NextResponse.redirect(new URL("/guest/stay", request.url));
+  redirect("/guest/stay");
 }
