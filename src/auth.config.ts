@@ -29,5 +29,22 @@ export const authConfig = {
       session.user.tenantId = (token.tenantId as string | null) ?? null;
       return session;
     },
+    // Auth.js computes `baseUrl` from the raw request URL, which on Railway
+    // (and similar reverse-proxy hosts) can be the container's internal
+    // bind address (e.g. localhost:8080) rather than the public domain —
+    // the same proxy-awareness gap that req.nextUrl has in middleware. A
+    // relative callback URL (the only kind this app ever passes, e.g.
+    // signOut({ callbackUrl: "/" })) is left as-is instead of being
+    // resolved against that possibly-wrong baseUrl, so the browser
+    // resolves it against the page's real origin instead.
+    redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return url;
+      try {
+        if (new URL(url).origin === baseUrl) return url;
+      } catch {
+        // not a valid absolute URL — fall through to the safe default
+      }
+      return "/";
+    },
   },
 } satisfies NextAuthConfig;
