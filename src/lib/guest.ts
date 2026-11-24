@@ -47,9 +47,10 @@ function decodeToken(token: string): { reservationId: string; exp: number } | nu
  *  arrival date (and property, if the QR code they scanned carried one).
  *  The arrival date can be the exact check-in date, or any date within the
  *  stay — guests mid-stay often reach for "today" rather than remembering
- *  their original check-in date. Verification is only possible from a few
- *  days before arrival through a few days after departure — not
- *  indefinitely, so a stale QR code eventually stops granting access. */
+ *  their original check-in date. Verification stays open from the moment
+ *  the booking exists (so a guest can look ahead right after booking)
+ *  through a few days after departure, after which a stale QR code stops
+ *  granting access. */
 export async function verifyGuestAccess(params: {
   lastName: string;
   arrivalDate: Date;
@@ -90,9 +91,8 @@ export async function verifyGuestAccess(params: {
     const dateMatches = arrivalDayStart.getTime() < r.checkOut.getTime() && arrivalDayEnd.getTime() > r.checkIn.getTime();
     if (!dateMatches) return false;
 
-    const windowStart = r.checkIn.getTime() - threeDaysMs;
     const windowEnd = r.checkOut.getTime() + threeDaysMs;
-    return now >= windowStart && now <= windowEnd;
+    return now <= windowEnd;
   });
 
   return match ?? null;
