@@ -142,6 +142,12 @@ the demo site keeps working with zero configuration:
   triggered by a real scheduler — a Railway Cron Job, or any external
   cron — once a day; `/portal/reminders` has the same three actions as
   on-demand buttons, for testing or for days nobody's set up a scheduler.
+  `POST /api/cron/lifecycle` (same `CRON_SECRET`) is the same pattern for a
+  different cadence: it keeps a reservation's status (UPCOMING / IN_STAY /
+  CHECKED_OUT) and its turnover cleaning job in step with real time, so
+  seeded or imported data keeps looking "lived in" instead of freezing at
+  whatever status it had on creation — point a scheduler at it every
+  15-30 minutes.
 
 A campaign posted with real credentials configured stores the resulting
 `facebookPostId`/`instagramPostId` on the `Campaign` row; if any selected
