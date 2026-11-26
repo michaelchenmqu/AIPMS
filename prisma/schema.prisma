@@ -275,6 +275,53 @@ model Property {
   modeChanges   PropertyModeChange[]
   leases        Lease[]
   applications  TenantApplication[]
+  pricingRule   PricingRule?
+}
+
+// Built-in dynamic pricing (Smart Promotion) — see lib/pricing.ts. One rule
+// per property, computed from basePrice: a season multiplier for the night's
+// date, a weekend multiplier on top of that, and a length-of-stay discount
+// applied to the whole stay. Disabled by default — basePrice alone is used
+// until a staff member turns it on — so adding this never changes a price
+// that's already live anywhere.
+model PricingRule {
+  id         String   @id @default(cuid())
+  propertyId String   @unique
+  property   Property @relation(fields: [propertyId], references: [id])
+  enabled    Boolean  @default(false)
+
+  weekendMultiplier Float @default(1.0) // applied to Friday & Saturday nights
+  minPrice          Float? // floor — the computed rate never drops below this
+
+  // A stay of longStayNights or more gets longStayDiscountPercent off its
+  // subtotal. 0 nights/percent (the default) means no discount applies.
+  longStayNights         Int   @default(0)
+  longStayDiscountPercent Float @default(0)
+
+  // Set by suggestPricingRules when AI (or its mock fallback) last proposed
+  // this rule set — shown to staff as "why", not stored as a quote of truth
+  // they can't see reasoning for. Null once a rule has been hand-edited
+  // since the last suggestion.
+  aiRationale String?
+  updatedAt   DateTime @updatedAt
+
+  seasons PricingSeason[]
+}
+
+// A named date band with its own multiplier, e.g. "Summer peak" Dec 15 -
+// Feb 5 at 1.4x. startMonth/Day..endMonth/Day wrap the year boundary when
+// end is earlier than start (Dec -> Feb above) — see lib/pricing.ts.
+model PricingSeason {
+  id            String      @id @default(cuid())
+  pricingRuleId String
+  pricingRule   PricingRule @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
+
+  label      String
+  startMonth Int // 1-12
+  startDay   Int // 1-31
+  endMonth   Int
+  endDay     Int
+  multiplier Float
 }
 
 model Reservation {

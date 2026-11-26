@@ -67,6 +67,7 @@ export default async function PropertyDetailPage({
         },
       },
       applications: { orderBy: { createdAt: "desc" } },
+      pricingRule: true,
     },
   });
   if (!property) notFound();
@@ -167,6 +168,22 @@ export default async function PropertyDetailPage({
           sub={`Airbnb ${property.airbnbScore} · Booking ${property.bookingScore} · Stayz ${property.stayzScore}`}
         />
       </div>
+
+      {property.lettingMode === "SHORT_TERM" && (
+        <Link href={`/portal/properties/${property.id}/pricing`}>
+          <Card hover className="p-5 mb-6 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <div className="text-sm font-semibold text-[var(--color-navy)]">Smart Promotion — Dynamic pricing</div>
+              <div className="text-xs text-[var(--color-muted)] mt-0.5">
+                {property.pricingRule?.enabled
+                  ? "On — rates vary by season, weekend, and length of stay."
+                  : `Off — every night is the flat ${formatMoney(property.basePrice)} base rate.`}
+              </div>
+            </div>
+            <Badge tone={property.pricingRule?.enabled ? "success" : "neutral"}>{property.pricingRule?.enabled ? "On" : "Set up →"}</Badge>
+          </Card>
+        </Link>
+      )}
 
       {property.lettingMode === "LONG_TERM" && !activeLease && (
         <Card className="p-6 mb-6">
