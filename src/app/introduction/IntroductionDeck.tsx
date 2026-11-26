@@ -348,6 +348,40 @@ const SLIDES: Slide[] = [
     ),
   },
   {
+    id: "smart-promotion",
+    content: (
+      <div className="min-h-full flex flex-col justify-center px-10 sm:px-16 py-10">
+        <Kicker>New — Smart Promotion</Kicker>
+        <h2 className="font-[family-name:var(--font-serif)] text-4xl font-bold text-white max-w-2xl">
+          Dynamic pricing, built in — no revenue-management subscription required
+        </h2>
+        <div className="mt-8 grid lg:grid-cols-[1fr_1.3fr] gap-10 items-center">
+          <ul className="flex flex-col gap-4 text-[rgba(255,255,255,0.85)] text-[15px] leading-relaxed">
+            <li>
+              <span className="text-white font-semibold">AI drafts the rules</span> — reading only this property&apos;s
+              own booking history, with its reasoning shown in plain language, not a black box.
+            </li>
+            <li>
+              <span className="text-white font-semibold">Season, weekend, and length-of-stay pricing</span> — staff
+              review and approve before anything reaches a guest; a live 21-night preview shows exactly what changes.
+            </li>
+            <li>
+              <span className="text-white font-semibold">Paired with the vacancy campaign</span>, not a separate
+              screen — the same gap that gets an AI-drafted social post also gets a pricing suggestion, right there.
+            </li>
+            <li>
+              <span className="text-white font-semibold">Room to grow</span> — connect a dedicated revenue-management
+              tool like PriceLabs later, through the same channel-manager connection, for portfolios that want it.
+            </li>
+          </ul>
+          <div className="flex justify-center">
+            <BrowserFrame src="/introduction/smart-promotion.png" alt="Smart Promotion dynamic pricing page with AI-drafted rules and a 21-night rate preview" maxH="56vh" />
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
     id: "recap",
     content: (
       <div className="min-h-full flex flex-col items-center justify-center text-center px-10">

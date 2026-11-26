@@ -757,6 +757,30 @@ async function main() {
     ],
   });
 
+  // ---------------------------------------------------------------------
+  // Smart Promotion — one property pre-configured with dynamic pricing on,
+  // as if AI had already proposed it from booking history and staff
+  // applied it, so the feature has something real to show immediately
+  // rather than only after more history accumulates. See lib/pricing.ts.
+  // ---------------------------------------------------------------------
+  const islandOasisPricing = await prisma.pricingRule.create({
+    data: {
+      propertyId: islandOasis.id,
+      enabled: true,
+      weekendMultiplier: 1.18,
+      longStayNights: 7,
+      longStayDiscountPercent: 10,
+      aiRationale:
+        "Based on past Island Oasis stays: weekend nights consistently out-earned weekdays, suggesting a 1.18x Friday/Saturday premium. December and January ran well above the rest of the year, and April's shoulder season held up better than most. This reads only this property's own bookings — it has no visibility into nearby comparable listings the way a dedicated revenue-management tool would.",
+    },
+  });
+  await prisma.pricingSeason.createMany({
+    data: [
+      { pricingRuleId: islandOasisPricing.id, label: "Summer peak", startMonth: 12, startDay: 15, endMonth: 2, endDay: 10, multiplier: 1.35 },
+      { pricingRuleId: islandOasisPricing.id, label: "April shoulder", startMonth: 4, startDay: 1, endMonth: 4, endDay: 25, multiplier: 1.15 },
+    ],
+  });
+
   console.log("Seed complete.");
   console.log("");
   console.log("Demo accounts (password for all: demo1234):");
